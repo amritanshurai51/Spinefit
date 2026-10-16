@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "SpineFit",
+    "slug": "spinefit",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.yourcompany.spinefit",
+      "infoPlist": {
+        "NSMotionUsageDescription": "Used to count your daily steps."
+      }
+    },
+    "android": {
+      "package": "com.amritanshu.spinefit",
+      "permissions": [
+        "POST_NOTIFICATIONS",
+        "ACTIVITY_RECOGNITION"
+      ]
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-video",
+      [
+        "expo-notifications",
+        {
+          "color": "#14306B"
+        }
+      ],
+      "expo-asset",
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "a6a2b3a1-ad8e-4736-9351-15e2b63aa420"
+      }
+    }
+  }
+}
