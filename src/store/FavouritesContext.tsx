@@ -1,36 +1,80 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ContentApi, Session, Tip } from '../api/endpoints';
+import { Api, Tip } from '../api/endpoints';
+import { useAuth } from './AuthContext';
 
 const Ctx = createContext<any>(null);
+
 export const FavouritesProvider = ({ children }: { children: React.ReactNode }) => {
-  const [items, setItems] = useState<Session[]>([]);
+  const { token, profile } = useAuth();
+  const [ids, setIds] = useState<string[]>([]);
   const [tipItems, setTipItems] = useState<Tip[]>([]);
+
   useEffect(() => {
-    AsyncStorage.multiGet(['favs', 'favTips']).then(([videos, tips]) => {
-      if (videos[1]) setItems(JSON.parse(videos[1]));
-      if (tips[1]) setTipItems(JSON.parse(tips[1]));
+    AsyncStorage.getItem('favTips').then(raw => {
+      if (raw) setTipItems(JSON.parse(raw));
     }).catch(() => {});
   }, []);
-  const isFav = (id: string) => items.some(s => s.id === id);
-  const toggle = async (s: Session) => {
-    const on = !isFav(s.id);
-    const next = on ? [s, ...items] : items.filter(i => i.id !== s.id);
-    setItems(next); AsyncStorage.setItem('favs', JSON.stringify(next)); // optimistic + cached
-    ContentApi.setFavourite(s.id, on);                                 // sync to backend
+
+  useEffect(() => {
+    if (!token) {
+      setIds([]);
+      return;
+    }
+    if (profile) Api.favourites().then(setIds).catch(() => {});
+  }, [token, profile?.uid]);
+
+  const isFav = (id: string) => ids.includes(id);
+  const toggle = async (id: string) => {
+    const shouldAdd = !isFav(id);
+    const previous = ids;
+    setIds(shouldAdd ? [id, ...ids] : ids.filter(favouriteId => favouriteId !== id));
+    const save = () => (shouldAdd ? Api.addFav(id) : Api.removeFav(id));
+    try {
+      try {
+        await save();
+      } catch (error: any) {
+        if (error?.code === 'profile_missing') {
+          await Api.me();
+          await save();
+        } else {
+          throw error;
+        }
+      }
+    } catch (error: any) {
+      setIds(previous);
+      Alert.alert('Could not update favourites', error?.detail ?? 'Please try again.');
+    }
   };
-  const isTipFav = (id: string) => tipItems.some(t => t.id === id);
+
+  const isTipFav = (id: string) => tipItems.some(tip => tip.id === id);
   const toggleTip = (tip: Tip) => {
-    const next = isTipFav(tip.id) ? tipItems.filter(t => t.id !== tip.id) : [tip, ...tipItems];
+    const next = isTipFav(tip.id) ? tipItems.filter(item => item.id !== tip.id) : [tip, ...tipItems];
     setTipItems(next);
-    AsyncStorage.setItem('favTips', JSON.stringify(next));
+    AsyncStorage.setItem('favTips', JSON.stringify(next)).catch(() => {});
   };
-  const clearVideos = () => {
-    setItems([]);
-    AsyncStorage.removeItem('favs');
-    items.forEach(item => ContentApi.setFavourite(item.id, false));
+
+  const clearVideos = async () => {
+    const previous = ids;
+    setIds([]);
+    try {
+      await Promise.all(previous.map(id => Api.removeFav(id)));
+    } catch (error: any) {
+      setIds(previous);
+      Alert.alert('Could not clear favourites', error?.detail ?? 'Please try again.');
+    }
   };
-  const clearTips = () => { setTipItems([]); AsyncStorage.removeItem('favTips'); };
-  return <Ctx.Provider value={{ items, isFav, toggle, tipItems, isTipFav, toggleTip, clearVideos, clearTips }}>{children}</Ctx.Provider>;
+  const clearTips = () => {
+    setTipItems([]);
+    AsyncStorage.removeItem('favTips').catch(() => {});
+  };
+
+  return (
+    <Ctx.Provider value={{ ids, isFav, toggle, tipItems, isTipFav, toggleTip, clearVideos, clearTips }}>
+      {children}
+    </Ctx.Provider>
+  );
 };
+
 export const useFavourites = () => useContext(Ctx);

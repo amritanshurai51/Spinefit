@@ -11,14 +11,13 @@ Video + push tokens need a dev build for full features: `npx expo run:android` /
 Welcome (logo, Get Started, "Already member? Login") -> Plans (X top-left closes) -> Login
 (Welcome back, Forgot email/password, Create account) -> Tabs: Home, Wellness Tips, Tracker, Favourite, Profile.
 
-## Backend contract (ask backend team to match, or edit src/api/endpoints.ts)
-POST /auth/login {email,password} -> {token,user}
-POST /auth/register {name,email,password} -> {token,user}
-POST /auth/forgot-password {email}
-GET  /sessions?q=&category=&days=  -> Session[]   (videoUrl = mp4 or HLS .m3u8)
-GET  /sessions/:id | GET /tips | GET /plans
-POST/DELETE /favourites/:id
-Until the API is live, the app shows mock data automatically. "[dev] Skip login" appears only in dev builds.
+## Backend and authentication
+Email/password sign-in, account creation, and password reset use Firebase Authentication.
+Set the Firebase web config values in `src/config.ts` before running the app.
+
+The API base URL and video/profile/favourite endpoints are defined in `src/config.ts` and
+`src/api/endpoints.ts`. Authenticated API requests use a current Firebase ID token.
+Wellness tips and plans remain static in-app data because the backend does not provide those endpoints.
 
 ## Theme
 Light / Dark / System in Profile (src/theme/themes.ts to tweak colours).

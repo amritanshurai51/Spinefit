@@ -37,11 +37,11 @@ export const Button = ({ title, onPress, loading, variant = 'solid', style }: an
   );
 };
 
-export const Input = ({ icon, secure, ...p }: TextInputProps & { icon?: any; secure?: boolean }) => {
+export const Input = ({ icon, secure, containerStyle, ...p }: TextInputProps & { icon?: any; secure?: boolean; containerStyle?: ViewStyle }) => {
   const { theme } = useTheme();
   const [hide, setHide] = React.useState(!!secure);
   return (
-    <View style={[s.input, { backgroundColor: theme.input, borderColor: theme.border }]}>
+    <View style={[s.input, { backgroundColor: theme.input, borderColor: theme.border }, containerStyle]}>
       {icon && <Ionicons name={icon} size={20} color={theme.text} />}
       <TextInput {...p} secureTextEntry={hide} placeholderTextColor={theme.subtext} autoCapitalize="none"
         style={{ flex: 1, marginHorizontal: 10, color: theme.text, fontSize: 15 }} />

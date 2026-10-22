@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { AuthProvider } from './src/store/AuthContext';
+import { ContentProvider } from './src/store/ContentContext';
 import { FavouritesProvider } from './src/store/FavouritesContext';
 import RootNavigator from './src/navigation/RootNavigator';
 import { registerForNotifications } from './src/services/notifications';
@@ -34,6 +35,6 @@ export default function App() {
   if (!fontsLoaded) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator /></View>;
 
   return (
-    <SafeAreaProvider><ThemeProvider><AuthProvider><FavouritesProvider><Inner /></FavouritesProvider></AuthProvider></ThemeProvider></SafeAreaProvider>
+    <SafeAreaProvider><ThemeProvider><AuthProvider><ContentProvider><FavouritesProvider><Inner /></FavouritesProvider></ContentProvider></AuthProvider></ThemeProvider></SafeAreaProvider>
   );
 }

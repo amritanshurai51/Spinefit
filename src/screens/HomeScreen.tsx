@@ -1,16 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, Image, Pressable, RefreshControl, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Text, TextInput } from '../components/Typography';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Screen } from '../components/ui';
 import SessionCard from '../components/SessionCard';
-import { ContentApi, Session } from '../api/endpoints';
+import { HomeVideo } from '../api/endpoints';
+import { useContent } from '../store/ContentContext';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../store/AuthContext';
 import { useFavourites } from '../store/FavouritesContext';
 
-const CATS = ['All', 'Posture', 'Back pain', 'Neck & shoulder', 'Strength'];
 const DATES = [{ l: 'Any time', d: 0 }, { l: 'Past 7 days', d: 7 }, { l: 'Past 30 days', d: 30 }, { l: 'Past 90 days', d: 90 }];
 const SECTIONS = [
   { title: 'Back Mobility', category: 'Back pain' },
@@ -30,16 +30,16 @@ export const Chip = ({ label, active, onPress, icon }: any) => {
   );
 };
 
-function VideoCard({ session, onPress, onFavorite, favorite }: { session: Session; onPress: () => void; onFavorite: () => void; favorite: boolean }) {
+function VideoCard({ session, onPress, onFavorite, favorite }: { session: HomeVideo; onPress: () => void; onFavorite: () => void; favorite: boolean }) {
   const { theme } = useTheme();
   return (
     <View style={{ width: 174, marginRight: 12 }}>
       <Pressable onPress={onPress} style={{ height: 112, borderRadius: 13, overflow: 'hidden', backgroundColor: theme.card }}>
-        <Image source={{ uri: session.thumbnail }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <Image source={{ uri: session.thumbnail_url ?? undefined }} style={StyleSheet.absoluteFill} resizeMode="cover" />
         <LinearGradient colors={['#07142B00', '#07142BB8']} style={StyleSheet.absoluteFill} />
         <View style={{ position: 'absolute', bottom: 8, left: 9, flexDirection: 'row', alignItems: 'center' }}>
           <Ionicons name="play" size={11} color="#fff" />
-          <Text style={{ color: '#fff', fontSize: 10, marginLeft: 4 }}>{session.durationMin} Min</Text>
+          <Text style={{ color: '#fff', fontSize: 10, marginLeft: 4 }}>{Math.max(1, Math.round(session.duration / 60))} Min</Text>
         </View>
         <Pressable onPress={onFavorite} hitSlop={8} style={{ position: 'absolute', top: 7, right: 7, width: 27, height: 27, borderRadius: 14, backgroundColor: '#07142B99', alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={15} color={favorite ? '#FF5C8A' : '#fff'} />
@@ -47,7 +47,7 @@ function VideoCard({ session, onPress, onFavorite, favorite }: { session: Sessio
       </Pressable>
       <Pressable onPress={onPress}>
         <Text numberOfLines={1} style={{ color: theme.text, fontSize: 12, fontWeight: '700', marginTop: 6 }}>{session.title}</Text>
-        <Text numberOfLines={1} style={{ color: theme.subtext, fontSize: 10, marginTop: 2 }}>{session.level}</Text>
+        <Text numberOfLines={1} style={{ color: theme.subtext, fontSize: 10, marginTop: 2 }}>{session.metadata?.categories?.[0] ?? session.metadata?.age_rating}</Text>
       </Pressable>
     </View>
   );
@@ -55,33 +55,29 @@ function VideoCard({ session, onPress, onFavorite, favorite }: { session: Sessio
 
 export default function HomeScreen({ navigation }: any) {
   const { theme } = useTheme();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { isFav, toggle } = useFavourites();
+  const { feed, videos, loading, error, refresh } = useContent();
   const { width } = useWindowDimensions();
   const [searchOpen, setSearchOpen] = useState(false);
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('All');
   const [days, setDays] = useState(0);
-  const [data, setData] = useState<Session[]>([]);
-  const [loading, setLoading] = useState(true);
   const [featuredIndex, setFeaturedIndex] = useState(0);
+  const cats = ['All', ...(feed?.categories.map((category: any) => category.name) ?? [])];
+  const data: HomeVideo[] = useMemo(() => {
+    const inCategory = cat === 'All' ? videos : feed?.categories.find((category: any) => category.name === cat)?.videos ?? [];
+    const since = days ? Date.now() - days * 86400000 : 0;
+    return inCategory.filter((video: HomeVideo) =>
+      (!q || video.title.toLowerCase().includes(q.toLowerCase())) &&
+      (!since || new Date(video.released_at).getTime() >= since));
+  }, [videos, feed, cat, days, q]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      setLoading(true);
-      ContentApi.sessions({ q: searchOpen ? q : '', category: searchOpen ? cat : 'All', days: searchOpen ? days : 0 })
-        .then(sessions => { if (!cancelled) setData(sessions); })
-        .finally(() => { if (!cancelled) setLoading(false); });
-    }, searchOpen ? 250 : 0);
-    return () => { cancelled = true; clearTimeout(timer); };
-  }, [q, cat, days, searchOpen]);
-
-  const firstName = user?.name?.trim().split(/\s+/)[0] || 'there';
+  const firstName = (profile?.name ?? user?.displayName)?.trim().split(/\s+/)[0] || 'there';
   const initials = firstName.slice(0, 1).toUpperCase();
   const featured = data.slice(0, 3);
   const featuredWidth = width - 32;
-  const openSession = (session: Session) => navigation.navigate('SessionDetail', { id: session.id });
+  const openSession = (session: HomeVideo) => navigation.navigate('SessionDetail', { id: session.video_id });
 
   const renderSearch = () => (
     <View style={{ flex: 1 }}>
@@ -98,9 +94,10 @@ export default function HomeScreen({ navigation }: any) {
       <FlatList
         data={data}
         numColumns={2}
-        keyExtractor={session => session.id}
+        keyExtractor={(video: HomeVideo) => video.video_id}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingHorizontal: 10, paddingBottom: 24 }}
+        refreshControl={<RefreshControl refreshing={loading && !!feed} onRefresh={refresh} />}
         ListHeaderComponent={<View style={{ paddingHorizontal: 6 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text style={{ fontSize: 17, fontWeight: '800', color: theme.text }}>EXPLORE SESSIONS</Text>
@@ -109,14 +106,14 @@ export default function HomeScreen({ navigation }: any) {
             </View>
           </View>
           <Text style={{ color: theme.text, fontWeight: '600', marginTop: 14, marginBottom: 8 }}>Categories</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>{CATS.map(category => <Chip key={category} label={category} active={cat === category} onPress={() => setCat(category)} />)}</ScrollView>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>{cats.map(category => <Chip key={category} label={category} active={cat === category} onPress={() => setCat(category)} />)}</ScrollView>
           <Text style={{ color: theme.text, fontWeight: '600', marginTop: 14, marginBottom: 8 }}>By Date</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
             {DATES.map(date => <Chip key={date.l} icon="time-outline" label={date.l} active={days === date.d} onPress={() => setDays(date.d)} />)}
           </ScrollView>
         </View>}
-        ListEmptyComponent={loading ? <ActivityIndicator style={{ marginTop: 40 }} color={theme.text} /> : <Text style={{ textAlign: 'center', color: theme.subtext, marginTop: 40 }}>No sessions found</Text>}
-        renderItem={({ item }) => <SessionCard s={item} onPress={() => openSession(item)} />}
+        ListEmptyComponent={loading ? <ActivityIndicator style={{ marginTop: 40 }} color={theme.text} /> : error ? <View style={{ alignItems: 'center', marginTop: 40 }}><Text style={{ textAlign: 'center', color: theme.subtext }}>{error}</Text><Text onPress={refresh} style={{ color: theme.text, fontWeight: '700', marginTop: 12 }}>Retry</Text></View> : <Text style={{ textAlign: 'center', color: theme.subtext, marginTop: 40 }}>No sessions found</Text>}
+        renderItem={({ item }) => <SessionCard v={item} onPress={() => openSession(item)} />}
       />
     </View>
   );
@@ -139,7 +136,7 @@ export default function HomeScreen({ navigation }: any) {
           </Pressable>
         </View>
 
-        {loading && data.length === 0 ? <ActivityIndicator style={{ marginTop: 100 }} color={theme.text} /> : <>
+        {loading && data.length === 0 ? <ActivityIndicator style={{ marginTop: 100 }} color={theme.text} /> : error && data.length === 0 ? <View style={{ alignItems: 'center', padding: 28 }}><Text style={{ color: theme.subtext, textAlign: 'center' }}>{error}</Text><Text onPress={refresh} style={{ color: theme.text, fontWeight: '700', marginTop: 12 }}>Retry</Text></View> : <>
           {featured.length > 0 && <>
             <ScrollView
               horizontal
@@ -148,21 +145,21 @@ export default function HomeScreen({ navigation }: any) {
               onMomentumScrollEnd={event => setFeaturedIndex(Math.round(event.nativeEvent.contentOffset.x / featuredWidth))}
             >
               {featured.map((session, index) => (
-                <View key={`${session.id}-${index}`} style={{ width: featuredWidth, height: 242, marginHorizontal: 16, borderRadius: 20, overflow: 'hidden', backgroundColor: theme.card }}>
-                  <Image source={{ uri: session.thumbnail }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                <View key={`${session.video_id}-${index}`} style={{ width: featuredWidth, height: 242, marginHorizontal: 16, borderRadius: 20, overflow: 'hidden', backgroundColor: theme.card }}>
+                  <Image source={{ uri: session.thumbnail_url ?? undefined }} style={StyleSheet.absoluteFill} resizeMode="cover" />
                   <LinearGradient colors={['#05102C1C', '#06132CF2']} locations={[0.28, 1]} style={StyleSheet.absoluteFill} />
-                  <View style={{ position: 'absolute', top: 12, left: 12, borderRadius: 10, backgroundColor: '#F1A8EDCC', paddingHorizontal: 9, paddingVertical: 5 }}>
+                  <View style={{ position: 'absolute', top: 12, left: 12, borderRadius: 12, backgroundColor: '#e6c5e5cc', paddingHorizontal: 9, paddingVertical: 5 }}>
                     <Text style={{ color: '#28164A', fontSize: 9, fontWeight: '800', letterSpacing: 0.8 }}>THIS WEEK’S PICK</Text>
                   </View>
-                  <Pressable onPress={() => toggle(session)} hitSlop={8} style={{ position: 'absolute', top: 11, right: 11, width: 32, height: 32, borderRadius: 16, backgroundColor: '#07142B99', alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name={isFav(session.id) ? 'heart' : 'heart-outline'} size={17} color={isFav(session.id) ? '#FF5C8A' : '#fff'} />
+                  <Pressable onPress={() => toggle(session.video_id)} hitSlop={8} style={{ position: 'absolute', top: 11, right: 11, width: 32, height: 32, borderRadius: 16, backgroundColor: '#07142B99', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name={isFav(session.video_id) ? 'heart' : 'heart-outline'} size={17} color={isFav(session.video_id) ? '#FF5C8A' : '#fff'} />
                   </Pressable>
                   <View style={{ position: 'absolute', left: 13, right: 13, bottom: 12 }}>
                     <Text numberOfLines={1} style={{ color: '#fff', fontSize: 21, fontWeight: '800' }}>{session.title}</Text>
                     <Text numberOfLines={2} style={{ color: '#E2E8F7', fontSize: 11, lineHeight: 16, marginTop: 3 }}>
-                      A gentle guided session to improve mobility, ease tension, and support your daily recovery.
+                      {session.description}
                     </Text>
-                    <Pressable onPress={() => openSession(session)} style={{ height: 37, borderRadius: 12, backgroundColor: '#F0A8EC', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', marginTop: 9 }}>
+                    <Pressable onPress={() => openSession(session)} style={{ height: 40, borderRadius: 12, backgroundColor: '#F0A8EC', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', marginTop: 9 }}>
                       <Ionicons name="play" size={13} color="#241443" />
                       <Text style={{ color: '#241443', fontSize: 12, fontWeight: '800', marginLeft: 7 }}>View session</Text>
                     </Pressable>
@@ -171,18 +168,18 @@ export default function HomeScreen({ navigation }: any) {
               ))}
             </ScrollView>
             <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 8, marginBottom: 5, gap: 5 }}>
-              {featured.map((session, index) => <View key={session.id + index} style={{ width: featuredIndex === index ? 15 : 5, height: 5, borderRadius: 4, backgroundColor: featuredIndex === index ? theme.accent : theme.subtext + '88' }} />)}
+              {featured.map((session, index) => <View key={session.video_id + index} style={{ width: featuredIndex === index ? 15 : 5, height: 5, borderRadius: 4, backgroundColor: featuredIndex === index ? theme.accent : theme.subtext + '88' }} />)}
             </View>
           </>}
 
           {SECTIONS.map(section => {
-            const sessions = data.filter(session => session.category === section.category);
+            const sessions = data.filter(session => session.metadata?.categories?.includes(section.category));
             if (!sessions.length) return null;
             return (
               <View key={section.title} style={{ marginTop: 18 }}>
                 <Text style={{ color: theme.text, fontSize: 15, fontWeight: '800', marginHorizontal: 18, marginBottom: 9 }}>{section.title}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 18 }}>
-                  {sessions.map(session => <VideoCard key={session.id} session={session} onPress={() => openSession(session)} favorite={isFav(session.id)} onFavorite={() => toggle(session)} />)}
+                  {sessions.map(session => <VideoCard key={session.video_id} session={session} onPress={() => openSession(session)} favorite={isFav(session.video_id)} onFavorite={() => toggle(session.video_id)} />)}
                 </ScrollView>
               </View>
             );

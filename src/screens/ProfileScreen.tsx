@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, Switch, View } from 'react-native';
-import { Text } from '../components/Typography';
+import { Text, TextInput } from '../components/Typography';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '../components/ui';
 import { useAuth } from '../store/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
 import { setReminder } from '../services/notifications';
+import { friendlyAuthError } from '../api/firebase';
 
 type ProfileSettings = {
   notifications: boolean;
@@ -39,15 +40,25 @@ function IconBox({ name }: { name: React.ComponentProps<typeof Ionicons>['name']
 
 export default function ProfileScreen({ navigation }: any) {
   const { theme, mode, setMode } = useTheme();
-  const { user, logout } = useAuth();
+  const { profile, user, logout, updateName, deleteAccount } = useAuth();
   const [settings, setSettings] = useState<ProfileSettings>(DEFAULT_SETTINGS);
   const [timePickerVisible, setTimePickerVisible] = useState(false);
+  const [editNameVisible, setEditNameVisible] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [savingName, setSavingName] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem(SETTINGS_KEY).then(raw => {
       if (raw) setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) });
     }).catch(() => {});
   }, []);
+
+  useEffect(() => { setNameDraft(profile?.name ?? ''); }, [profile?.name]);
 
   const saveSettings = (next: ProfileSettings) => {
     setSettings(next);
@@ -82,9 +93,10 @@ export default function ProfileScreen({ navigation }: any) {
     if (settings.exerciseReminder) scheduleExerciseReminder(true, time);
   };
 
-  const name = user?.name?.trim() || 'SpineFit member';
+  const name = profile?.name?.trim() || 'Member';
+  const email = profile?.email ?? user?.email ?? '';
   const initials = name.split(/\s+/).slice(0, 2).map((part: string) => part[0]).join('').toUpperCase();
-  const completedFields = [user?.name, user?.email].filter(Boolean).length;
+  const completedFields = [profile?.name, email].filter(Boolean).length;
   const completion = Math.round((completedFields / 2) * 100);
   const isDarkMode = mode === 'dark';
 
@@ -122,6 +134,42 @@ export default function ProfileScreen({ navigation }: any) {
   );
   const unavailable = (feature: string) => Alert.alert(feature, `${feature} will be available when your SpineFit account services are connected.`);
 
+  const saveProfileName = async () => {
+    const trimmed = nameDraft.trim();
+    if (!trimmed || trimmed.length > 255) {
+      setNameError('Name must be between 1 and 255 characters.');
+      return;
+    }
+    setSavingName(true);
+    setNameError('');
+    try {
+      await updateName(trimmed);
+      setEditNameVisible(false);
+    } catch (error: any) {
+      setNameError(error?.detail ?? 'Could not update your name.');
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  const confirmDeleteAccount = async () => {
+    if (!deletePassword) {
+      setDeleteError('Enter your password to continue.');
+      return;
+    }
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await deleteAccount(deletePassword);
+      setDeleteModalVisible(false);
+      setDeletePassword('');
+    } catch (error: any) {
+      setDeleteError(friendlyAuthError(error));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
@@ -157,8 +205,8 @@ export default function ProfileScreen({ navigation }: any) {
           <View style={{ marginTop: 14, gap: 8 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <IconBox name="mail" />
-              <Text numberOfLines={1} style={{ color: WHITE, fontSize: 13, flex: 1, marginLeft: 10 }}>{user?.email || 'Email not added'}</Text>
-              {user?.email ? <Ionicons name="checkmark-circle" size={15} color="#50D69B" /> : null}
+              <Text numberOfLines={1} style={{ color: WHITE, fontSize: 13, flex: 1, marginLeft: 10 }}>{email || 'Email not added'}</Text>
+              {email ? <Ionicons name="checkmark-circle" size={15} color="#50D69B" /> : null}
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <IconBox name="person" />
@@ -178,7 +226,7 @@ export default function ProfileScreen({ navigation }: any) {
                 <View style={{ height: 4, width: `${completion}%`, borderRadius: 4, backgroundColor: PINK }} />
               </View>
             </View>
-            <Pressable onPress={() => unavailable('Edit profile')} style={{ marginLeft: 12, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12, backgroundColor: PINK }}>
+            <Pressable onPress={() => { setNameError(''); setEditNameVisible(true); }} style={{ marginLeft: 12, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12, backgroundColor: PINK }}>
               <Text style={{ color: NAVY, fontSize: 12, fontWeight: '800' }}>Edit profile</Text>
             </Pressable>
           </View>
@@ -221,6 +269,10 @@ export default function ProfileScreen({ navigation }: any) {
           {row('document-text-outline', 'Terms of service', 'Review your terms', () => unavailable('Terms of service'))}
         </View>
 
+        <Pressable onPress={() => { setDeleteError(''); setDeletePassword(''); setDeleteModalVisible(true); }} style={{ alignSelf: 'center', paddingVertical: 14 }}>
+          <Text style={{ color: '#FFB7C3', fontSize: 12, fontWeight: '700' }}>Delete my account</Text>
+        </Pressable>
+
         <Pressable onPress={logout} style={{ minHeight: 52, marginTop: 16, borderRadius: 17, backgroundColor: NAVY, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, elevation: 4 }}>
           <Ionicons name="log-out-outline" size={17} color={PINK} />
           <Text style={{ color: PINK, fontWeight: '800', fontSize: 14 }}>Log out</Text>
@@ -238,6 +290,35 @@ export default function ProfileScreen({ navigation }: any) {
                 {settings.reminderTime === time ? <Ionicons name="checkmark-circle" size={20} color={PINK} /> : null}
               </Pressable>
             ))}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal visible={editNameVisible} transparent animationType="fade" onRequestClose={() => setEditNameVisible(false)}>
+        <Pressable onPress={() => setEditNameVisible(false)} style={{ flex: 1, backgroundColor: '#080D24A8', justifyContent: 'center', padding: 28 }}>
+          <Pressable onPress={() => {}} style={{ backgroundColor: theme.dark ? '#19275A' : WHITE, borderRadius: 20, padding: 18 }}>
+            <Text style={{ color: theme.text, fontSize: 18, fontWeight: '800', marginBottom: 8 }}>Edit name</Text>
+            <TextInput value={nameDraft} onChangeText={setNameDraft} placeholder="Your name" placeholderTextColor={theme.subtext} maxLength={255}
+              style={{ color: theme.text, borderWidth: 1, borderColor: theme.border, borderRadius: 12, paddingHorizontal: 12, minHeight: 46, marginTop: 8 }} />
+            {!!nameError && <Text style={{ color: '#D9485F', fontSize: 12, marginTop: 8 }}>{nameError}</Text>}
+            <Pressable onPress={saveProfileName} disabled={savingName} style={{ minHeight: 46, marginTop: 14, borderRadius: 12, backgroundColor: NAVY, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: WHITE, fontWeight: '700' }}>{savingName ? 'Saving…' : 'Save'}</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal visible={deleteModalVisible} transparent animationType="fade" onRequestClose={() => setDeleteModalVisible(false)}>
+        <Pressable onPress={() => setDeleteModalVisible(false)} style={{ flex: 1, backgroundColor: '#080D24A8', justifyContent: 'center', padding: 28 }}>
+          <Pressable onPress={() => {}} style={{ backgroundColor: theme.dark ? '#19275A' : WHITE, borderRadius: 20, padding: 18 }}>
+            <Text style={{ color: theme.text, fontSize: 18, fontWeight: '800', marginBottom: 8 }}>Delete my account?</Text>
+            <Text style={{ color: theme.subtext, fontSize: 13, marginBottom: 12 }}>This permanently deletes your account. Enter your password to confirm.</Text>
+            <TextInput value={deletePassword} onChangeText={setDeletePassword} placeholder="Password" placeholderTextColor={theme.subtext} secureTextEntry
+              style={{ color: theme.text, borderWidth: 1, borderColor: theme.border, borderRadius: 12, paddingHorizontal: 12, minHeight: 46, marginTop: 8 }} />
+            {!!deleteError && <Text style={{ color: '#D9485F', fontSize: 12, marginTop: 8 }}>{deleteError}</Text>}
+            <Pressable onPress={confirmDeleteAccount} disabled={deleting} style={{ minHeight: 46, marginTop: 14, borderRadius: 12, backgroundColor: '#C53E59', alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: WHITE, fontWeight: '700' }}>{deleting ? 'Deleting…' : 'Delete account'}</Text>
+            </Pressable>
           </Pressable>
         </Pressable>
       </Modal>
