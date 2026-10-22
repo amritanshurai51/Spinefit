@@ -17,6 +17,7 @@ import TrackerScreen from '../screens/TrackerScreen';
 import FavouritesScreen from '../screens/FavouritesScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SessionDetailScreen from '../screens/SessionDetailScreen';
+import WaterIntakeScreen from '../screens/WaterIntakeScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -50,6 +51,7 @@ export default function RootNavigator() {
           <>
             <Stack.Screen name="Main" component={Tabs} />
             <Stack.Screen name="SessionDetail" component={SessionDetailScreen} />
+            <Stack.Screen name="WaterIntake" component={WaterIntakeScreen} options={{ animation: 'slide_from_right' }} />
           </>
         ) : (
           <>

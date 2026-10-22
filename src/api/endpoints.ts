@@ -17,6 +17,15 @@ export type Category = { name: string; videos: HomeVideo[] };
 export type HomeFeed = { categories: Category[]; thumbnails_expire_at: number };
 export type PlayInfo = HomeVideo & { hls_url: string; embed_url?: string; expires_at: number };
 
+export type WaterDay = { day: string; water_ml: number };
+export type WaterHistory = { from: string; to: string; days: WaterDay[] };
+
+/** YYYY-MM-DD in the phone's local timezone (the water API requires local dates). */
+export function localDateString(date = new Date()) {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 export const Api = {
   me: () => api<Profile>('GET', '/auth/me'),
   setName: (name: string) => api<Profile>('PATCH', '/auth/me', { name }),
@@ -26,6 +35,9 @@ export const Api = {
   favourites: () => api<string[]>('GET', '/favourites'),
   addFav: (video_id: string) => api('POST', '/favourites', { video_id }),
   removeFav: (id: string) => api('DELETE', `/favourites/${id}`),
+  waterHistory: (today = localDateString()) => api<WaterHistory>('GET', `/water-intake?today=${today}`),
+  saveWater: (day: string, water_ml: number, today = localDateString()) =>
+    api<WaterDay & { message: string }>('POST', `/water-intake?today=${today}`, { day, water_ml }),
 };
 
 // The backend has no tips or plan endpoints, so these remain local app data.

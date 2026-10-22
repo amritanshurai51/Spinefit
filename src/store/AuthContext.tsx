@@ -11,7 +11,6 @@ import {
 } from 'firebase/auth';
 import { auth } from '../api/firebase';
 import { Api, Profile } from '../api/endpoints';
-import { signInWithGoogle } from '../services/googleAuth';
 
 const Ctx = createContext<any>(null);
 
@@ -47,6 +46,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     googleLoginInProgress.current = true;
     setLoading(true);
     try {
+      // Load the native Google module only on demand. This lets the rest of
+      // the app start in Expo Go, which does not include RNGoogleSignin.
+      const { signInWithGoogle } = await import('../services/googleAuth');
       const verifiedProfile = await signInWithGoogle();
       if (verifiedProfile) setProfile(verifiedProfile);
       return Boolean(verifiedProfile);

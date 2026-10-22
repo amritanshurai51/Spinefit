@@ -6,7 +6,6 @@ import { Button, Input, Logo, Screen } from '../components/ui';
 import { useAuth } from '../store/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
 import { friendlyAuthError } from '../api/firebase';
-import { googleSignInErrorMessage } from '../services/googleAuth';
 
 export default function LoginScreen({ navigation }: any) {
   const { theme } = useTheme();
@@ -23,7 +22,7 @@ export default function LoginScreen({ navigation }: any) {
   const signInGoogle = async () => {
     setGoogleBusy(true);
     try { await loginWithGoogle(); }
-    catch (error: any) { Alert.alert('Google sign-in failed', googleSignInErrorMessage(error)); }
+    catch (error: any) { Alert.alert('Google sign-in failed', googleErrorMessage(error)); }
     finally { setGoogleBusy(false); }
   };
   return (
@@ -61,6 +60,22 @@ export default function LoginScreen({ navigation }: any) {
 }
 
 const fieldStyle = { height: 46, borderRadius: 15, borderColor: 'rgba(255,255,255,0.95)', backgroundColor: 'rgba(255,255,255,0.56)', marginBottom: 14, shadowColor: '#48327D', shadowOpacity: 0.12, shadowRadius: 8, shadowOffset: { width: 0, height: 5 }, elevation: 3 } as const;
+function googleErrorMessage(error: any) {
+  const message = String(error?.message ?? '');
+  const code = String(error?.code ?? '');
+  if (message.includes('RNGoogleSignin') && message.includes('could not be found')) {
+    return 'This app binary does not include Google Sign-In. Open the SpineFit development build; Expo Go does not include this native module.';
+  }
+  if (code === 'DEVELOPER_ERROR' || code === '10') {
+    return 'Google sign-in setup failed (DEVELOPER_ERROR). Verify the Android package name, signing SHA-1, and Firebase Google client settings.';
+  }
+  if (code.includes('PLAY_SERVICES_NOT_AVAILABLE')) return 'Google Play services are unavailable or need an update on this phone.';
+  if (message.toLowerCase().includes('network') || message.toLowerCase().includes('fetch')) {
+    return 'Could not reach the SpineFit server. Check your internet connection and try again.';
+  }
+  return message || 'Google sign-in failed. Please try again.';
+}
+
 function SocialButton({ title, icon, dark = false, onPress, disabled = false }: { title: string; icon: any; dark?: boolean; onPress?: () => void; disabled?: boolean }) {
   return <Pressable disabled={disabled} onPress={onPress ?? (() => Alert.alert('Not set up yet', 'Social sign-in has not been configured for this app.'))} style={{ height: 44, marginBottom: 8, borderRadius: 15, borderWidth: dark ? 0 : 1, borderColor: 'rgba(50,42,78,0.18)', backgroundColor: dark ? '#fff' : 'rgba(255,255,255,0.24)', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', opacity: disabled ? 0.65 : 1 }}>
     <Ionicons name={icon} size={16} color={dark ? '#111' : '#4285F4'} /><Text style={{ color: '#101010', fontSize: 12, marginLeft: 8 }}>{title}</Text>
