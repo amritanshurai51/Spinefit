@@ -1,0 +1,5 @@
+// SVG markup from public/WellnessIcon.svg, rendered with react-native-svg.
+export const wellnessIconXml = `<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M16 27.9993C13.8667 19.9993 19.2 14.666 26.6667 15.466C26.6667 24.266 20.8 27.1993 16 27.9993Z" stroke-width="1.64932" stroke-linejoin="round" stroke="#12316B"/>
+<path d="M16 22.1506C16.5532 23.8094 16.595 25.7892 16 27.9993V22.1506ZM16 22.1506C14.8176 18.6057 11.299 16.5269 6.66663 16.7993M16 22.1506V12.666" stroke-width="1.64932" stroke-linecap="round" stroke-linejoin="round" stroke="#12316B"/>
+</svg>`;

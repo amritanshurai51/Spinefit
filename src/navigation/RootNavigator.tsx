@@ -4,6 +4,9 @@ import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { SvgXml } from 'react-native-svg';
+import { Text } from '../components/Typography';
+import { wellnessIconXml } from '../assets/wellnessIconXml';
 import { useAuth } from '../store/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
 import WelcomeScreen from '../screens/WelcomeScreen';
@@ -23,14 +26,22 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function Tabs() {
-  const { theme } = useTheme();
-  const icons: Record<string, any> = { Home: 'home-outline', 'Wellness Tips': 'leaf-outline', Tracker: 'pulse', Favourite: 'heart-outline', Profile: 'person-outline' };
+  const icons: Record<string, any> = { Home: 'home-outline', Tracker: 'pulse', Favourite: 'heart-outline', Profile: 'person-outline' };
   return (
     <Tab.Navigator screenOptions={({ route }) => ({
-      headerShown: false, tabBarStyle: { backgroundColor: theme.tabBar, borderTopWidth: 0, height: 64, paddingBottom: 8, paddingTop: 6 },
-      tabBarActiveTintColor: theme.tabActive, tabBarInactiveTintColor: theme.tabInactive, tabBarLabelStyle: { fontSize: 11, fontFamily: 'Sora_500Medium' },
+      headerShown: false, tabBarStyle: { backgroundColor: '#FFFFFF', borderTopWidth: 0, height: 64, paddingBottom: 8, paddingTop: 6 },
+      tabBarActiveTintColor: '#F0A3EF', tabBarInactiveTintColor: '#183675',
+      tabBarLabel: ({ focused }) => <Text style={{ color: focused ? '#F0A3EF' : '#183675', fontSize: 10, fontWeight: '500' }}>{route.name}</Text>,
       tabBarItemStyle: { transform: [{ translateY: -8 }] },
-      tabBarIcon: ({ color, size }) => <Ionicons name={icons[route.name]} size={size} color={color} />,
+      tabBarIcon: ({ focused, size }) => (
+        <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: focused ? '#F0A3EF' : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+          {route.name === 'Wellness Tips' ? (
+            <SvgXml xml={wellnessIconXml.replace(/#12316B/g, focused ? '#FFFFFF' : '#183675')} width={size} height={size} />
+          ) : (
+            <Ionicons name={icons[route.name]} size={size} color={focused ? '#FFFFFF' : '#183675'} />
+          )}
+        </View>
+      ),
     })}>
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Wellness Tips" component={WellnessTipsScreen} />

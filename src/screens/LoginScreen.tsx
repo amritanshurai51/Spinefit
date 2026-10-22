@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SvgXml } from 'react-native-svg';
 import { Text } from '../components/Typography';
 import { Button, Input, Logo, Screen } from '../components/ui';
 import { useAuth } from '../store/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
 import { friendlyAuthError } from '../api/firebase';
+import { googleIconXml } from '../assets/googleIconXml';
 
 export default function LoginScreen({ navigation }: any) {
   const { theme } = useTheme();
@@ -29,28 +31,28 @@ export default function LoginScreen({ navigation }: any) {
     <Screen edges={['top', 'bottom']}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ paddingHorizontal: 21, paddingTop: 28, paddingBottom: 22, flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-          <Logo size={50} />
-          <Text style={{ fontSize: 27, lineHeight: 34, fontWeight: '800', color: '#103477', marginTop: 3 }}>Welcome back</Text>
+          <View style={{ alignSelf: 'flex-start' }}><Logo size={50} /></View>
+          <Text style={{ fontSize: 32, lineHeight: 34, fontWeight: '800', color: '#103477', marginTop: 13 }}>Welcome back</Text>
           <Text style={{ color: '#173970', fontSize: 13, marginTop: 2, marginBottom: 20 }}>Good to have you back</Text>
 
-          <Text style={{ color: '#103477', fontSize: 10, fontWeight: '600', marginBottom: 7 }}>Email</Text>
+          <Text style={{ color: '#103477', fontSize: 12, fontWeight: '600', marginBottom: 7 }}>Email</Text>
           <Input icon="mail-outline" placeholder="Email address" keyboardType="email-address" value={email} onChangeText={setEmail} containerStyle={fieldStyle} />
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: -1, marginBottom: 7 }}>
-            <Text style={{ color: '#103477', fontSize: 10, fontWeight: '600' }}>Password</Text>
-            <Text onPress={() => navigation.navigate('ForgotPassword')} style={{ color: '#103477', fontSize: 10, fontWeight: '600', textDecorationLine: 'underline' }}>Forgot?</Text>
+            <Text style={{ color: '#103477', fontSize: 12, fontWeight: '600' }}>Password</Text>
+            <Text onPress={() => navigation.navigate('ForgotPassword')} style={{ color: '#103477', fontSize: 12, fontWeight: '600', textDecorationLine: 'underline' }}>Forgot?</Text>
           </View>
           <Input icon="lock-closed-outline" placeholder="Password" secure value={pw} onChangeText={setPw} containerStyle={fieldStyle} />
           <Pressable onPress={() => setRemember(!remember)} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 1, marginBottom: 24 }}>
             <View style={{ width: 17, height: 17, borderRadius: 5, backgroundColor: remember ? '#123D86' : 'transparent', borderWidth: 1, borderColor: '#123D86', alignItems: 'center', justifyContent: 'center' }}>
               {remember && <Ionicons name="checkmark" size={13} color="#fff" />}
             </View>
-            <Text style={{ color: '#536183', fontSize: 9, marginLeft: 10 }}>Keep me logged in on this device.</Text>
+            <Text style={{ color: '#536183', fontSize: 12, marginLeft: 10 }}>Keep me logged in on this device.</Text>
           </Pressable>
           <Button title="Log in" onPress={submit} loading={busy} style={{ height: 50, borderRadius: 17, backgroundColor: '#103F8E', shadowColor: '#102D6C', shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 7 }, elevation: 5 }} />
-          <Text style={{ textAlign: 'center', fontSize: 10, color: '#465476', marginTop: 17, marginBottom: 15 }}>or continue with</Text>
-          <SocialButton title="Continue with Google" icon="logo-google" onPress={signInGoogle} disabled={googleBusy} />
+          <Text style={{ textAlign: 'center', fontSize: 12, color: '#465476', marginTop: 17, marginBottom: 15 }}>or continue with</Text>
+          <SocialButton title="Continue with Google" customIcon={<SvgXml xml={googleIconXml} width={18} height={18} />} onPress={signInGoogle} disabled={googleBusy} />
           <SocialButton title="Continue with Apple" icon="logo-apple" dark />
-          <Text style={{ textAlign: 'center', marginTop: 'auto', paddingTop: 28, fontSize: 10, color: '#465476' }}>
+          <Text style={{ textAlign: 'center', marginTop: 'auto', paddingTop: 28, fontSize: 11, color: '#465476' }}>
             New to SpineFit? <Text onPress={() => navigation.navigate('Signup')} style={{ color: '#103477', fontWeight: '700' }}>Create an account</Text>
           </Text>
         </ScrollView>
@@ -59,7 +61,7 @@ export default function LoginScreen({ navigation }: any) {
   );
 }
 
-const fieldStyle = { height: 46, borderRadius: 15, borderColor: 'rgba(255,255,255,0.95)', backgroundColor: 'rgba(255,255,255,0.56)', marginBottom: 14, shadowColor: '#48327D', shadowOpacity: 0.12, shadowRadius: 8, shadowOffset: { width: 0, height: 5 }, elevation: 3 } as const;
+const fieldStyle = { height: 50, borderRadius: 15, borderColor: 'rgba(255,255,255,0.98)', backgroundColor: '#FFFFFF', marginBottom: 14, shadowColor: '#4C1D95', shadowOpacity: 0.38, shadowRadius: 13, shadowOffset: { width: 0, height: 9 }, elevation: 7 } as const;
 function googleErrorMessage(error: any) {
   const message = String(error?.message ?? '');
   const code = String(error?.code ?? '');
@@ -76,8 +78,8 @@ function googleErrorMessage(error: any) {
   return message || 'Google sign-in failed. Please try again.';
 }
 
-function SocialButton({ title, icon, dark = false, onPress, disabled = false }: { title: string; icon: any; dark?: boolean; onPress?: () => void; disabled?: boolean }) {
-  return <Pressable disabled={disabled} onPress={onPress ?? (() => Alert.alert('Not set up yet', 'Social sign-in has not been configured for this app.'))} style={{ height: 44, marginBottom: 8, borderRadius: 15, borderWidth: dark ? 0 : 1, borderColor: 'rgba(50,42,78,0.18)', backgroundColor: dark ? '#fff' : 'rgba(255,255,255,0.24)', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', opacity: disabled ? 0.65 : 1 }}>
-    <Ionicons name={icon} size={16} color={dark ? '#111' : '#4285F4'} /><Text style={{ color: '#101010', fontSize: 12, marginLeft: 8 }}>{title}</Text>
+function SocialButton({ title, icon, customIcon, dark = false, onPress, disabled = false }: { title: string; icon?: any; customIcon?: React.ReactNode; dark?: boolean; onPress?: () => void; disabled?: boolean }) {
+  return <Pressable disabled={disabled} onPress={onPress ?? (() => Alert.alert('Not set up yet', 'Social sign-in has not been configured for this app.'))} style={{ height: 56, marginBottom: 9, borderRadius: 17, borderWidth: dark ? 0 : 1, borderColor: 'rgba(50,42,78,0.18)', backgroundColor: '#FFFFFF', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', opacity: disabled ? 0.65 : 1 }}>
+    {customIcon ?? <Ionicons name={icon} size={16} color={dark ? '#111' : '#4285F4'} />}<Text style={{ color: '#101010', fontSize: 13,fontWeight: '500', marginLeft: 8 }}>{title}</Text>
   </Pressable>;
 }

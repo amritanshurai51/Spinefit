@@ -20,7 +20,89 @@ const WAVE_AMPLITUDE = 4;
 // Set to true temporarily to see layout bounds and print the component's measured size.
 const DEBUG_WATER_BODY = false;
 
-const BODY_PATH = 'M75 8 C64 8 58 17 58 29 C58 41 63 50 70 54 L70 65 C66 70 55 74 44 78 C34 82 28 90 25 102 L17 132 C15 139 17 146 22 148 C27 150 30 145 32 139 L39 116 L39 147 L33 174 L28 208 L24 246 C23 254 28 259 34 258 C39 258 42 254 43 247 L50 212 L58 180 L64 158 L66 198 L64 264 C64 273 68 279 75 279 C82 279 86 273 86 264 L87 198 L91 158 L97 180 L105 212 L112 247 C113 254 117 258 123 257 C129 256 131 251 130 244 L126 207 L120 174 L114 147 L114 116 L121 139 C123 145 126 150 131 148 C136 146 137 140 135 133 L127 102 C124 90 118 82 108 78 C97 74 85 70 80 65 L80 54 C87 50 92 40 92 28 C92 16 86 8 75 8 Z';
+/* ------------------------------------------------------------------ */
+/* Body silhouette                                                     */
+/* Only the RIGHT half is described below. The left half is generated  */
+/* by mirroring it around x = 75, so the figure is always perfectly    */
+/* symmetric and smooth (no hand-drawn left/right mismatch).           */
+/* ------------------------------------------------------------------ */
+type Pt = [number, number];
+type Segment = { to: Pt; c1?: Pt; c2?: Pt };
+
+const curve = (x1: number, y1: number, x2: number, y2: number, x: number, y: number): Segment => ({
+  c1: [x1, y1],
+  c2: [x2, y2],
+  to: [x, y],
+});
+const line = (x: number, y: number): Segment => ({ to: [x, y] });
+
+// Starts at the top of the head and ends at the crotch, both on the centre line (x = 75).
+const BODY_START: Pt = [75, 4];
+const RIGHT_HALF: Segment[] = [
+  // Head
+  curve(83, 4, 89.5, 10, 89.5, 21),
+  curve(89.5, 29, 86, 35, 81, 38),
+  // Neck
+  line(81, 48),
+  // Shoulder and upper arm (outer edge)
+  curve(90, 50, 100, 52, 108, 56),
+  curve(115, 58, 119, 64, 119, 72),
+  curve(120, 92, 122, 106, 124, 122),
+  // Forearm and hand
+  curve(125.5, 136, 127.5, 152, 129, 166),
+  curve(130.5, 172, 132, 180, 130.5, 186),
+  curve(128.5, 191, 122.5, 191, 122, 186),
+  // Inner arm back up to the armpit
+  curve(121.5, 178, 121, 170, 120, 164),
+  curve(117.5, 148, 113, 128, 110, 112),
+  curve(108, 100, 106, 92, 104, 84),
+  // Torso: ribcage, waist, hip
+  curve(104, 98, 99, 112, 98, 128),
+  curve(98, 138, 104, 146, 104, 158),
+  // Outer leg: thigh, knee, calf, ankle
+  curve(105, 176, 103, 196, 100, 212),
+  curve(98.5, 224, 103, 234, 103, 246),
+  curve(103, 256, 98.5, 264, 96.5, 272),
+  // Foot
+  curve(96.5, 277, 100, 279, 105, 281.5),
+  curve(109, 283, 108.5, 288, 103, 288),
+  line(89, 288),
+  curve(85, 288, 85.5, 283, 86.5, 279),
+  curve(86.5, 276, 86.5, 273, 87.5, 270),
+  // Inner leg back up to the crotch
+  curve(88.5, 260, 90, 250, 88.5, 242),
+  curve(87.5, 232, 86.5, 222, 86.5, 212),
+  curve(86, 196, 82, 182, 78, 170),
+  curve(77, 166, 75.5, 164, 75, 164),
+];
+
+const mirror = ([x, y]: Pt): Pt => [VIEWBOX_WIDTH - x, y];
+const fmt = ([x, y]: Pt) => `${x} ${y}`;
+
+function buildBodyPath(): string {
+  // Start point of every segment (needed to walk the path backwards for the left half).
+  const starts: Pt[] = [BODY_START];
+  RIGHT_HALF.forEach(segment => starts.push(segment.to));
+
+  let d = `M${fmt(BODY_START)}`;
+  RIGHT_HALF.forEach(segment => {
+    d += segment.c1 && segment.c2
+      ? ` C${fmt(segment.c1)} ${fmt(segment.c2)} ${fmt(segment.to)}`
+      : ` L${fmt(segment.to)}`;
+  });
+
+  // Left half = mirrored right half, traversed in reverse (control points swap order).
+  for (let i = RIGHT_HALF.length - 1; i >= 0; i -= 1) {
+    const segment = RIGHT_HALF[i];
+    const target = mirror(starts[i]);
+    d += segment.c1 && segment.c2
+      ? ` C${fmt(mirror(segment.c2))} ${fmt(mirror(segment.c1))} ${fmt(target)}`
+      : ` L${fmt(target)}`;
+  }
+  return `${d} Z`;
+}
+
+const BODY_PATH = buildBodyPath();
 
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
 const AnimatedPath = Animated.createAnimatedComponent(Path);
@@ -143,7 +225,13 @@ export function WaterBody({ current, goal, reducedMotion }: WaterBodyProps) {
             </>
           )}
         </G>
-        <Path d={BODY_PATH} fill="none" stroke={theme.dark ? '#8FDFFF' : '#1685CE'} strokeWidth="1.45" />
+        <Path
+          d={BODY_PATH}
+          fill="none"
+          stroke={theme.dark ? '#8FDFFF' : '#1685CE'}
+          strokeWidth="1.45"
+          strokeLinejoin="round"
+        />
       </Svg>
 
       <View style={[styles.metric, styles.metricRight]}>

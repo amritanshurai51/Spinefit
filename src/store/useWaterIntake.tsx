@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiError } from '../api/client';
 import { Api, localDateString, WaterDay } from '../api/endpoints';
+import { useAuth } from './AuthContext';
 
 export const WATER_GLASS_ML = 250;
 export const WATER_GOAL_LITRES = 3;
@@ -11,7 +12,7 @@ export const WATER_MAX_ML = 10_000;
 const cacheKey = (day: string) => `water-ml:${day}`;
 const pendingKey = (day: string) => `water-pending:${day}`;
 
-export function useWaterIntake() {
+function useWaterIntakeState() {
   const [dateKey, setDateKey] = useState(() => localDateString());
   const [current, setCurrent] = useState(0);
   const [history, setHistory] = useState<WaterDay[]>([]);
@@ -141,4 +142,26 @@ export function useWaterIntake() {
     save,
     reload: load,
   };
+}
+
+type WaterIntakeState = ReturnType<typeof useWaterIntakeState>;
+const WaterIntakeContext = createContext<WaterIntakeState | null>(null);
+
+function ActiveWaterIntakeProvider({ children }: { children: React.ReactNode }) {
+  const state = useWaterIntakeState();
+  return <WaterIntakeContext.Provider value={state}>{children}</WaterIntakeContext.Provider>;
+}
+
+export function WaterIntakeProvider({ children }: { children: React.ReactNode }) {
+  const { token, loading } = useAuth();
+  if (loading || !token) {
+    return <WaterIntakeContext.Provider value={null}>{children}</WaterIntakeContext.Provider>;
+  }
+  return <ActiveWaterIntakeProvider>{children}</ActiveWaterIntakeProvider>;
+}
+
+export function useWaterIntake(): WaterIntakeState {
+  const state = useContext(WaterIntakeContext);
+  if (!state) throw new Error('useWaterIntake must be used inside WaterIntakeProvider while signed in.');
+  return state;
 }

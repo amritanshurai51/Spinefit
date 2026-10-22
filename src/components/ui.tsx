@@ -20,7 +20,7 @@ export const Screen = ({ children, style, edges = ['top'] }: { children: React.R
 export const Logo = ({ size = 96 }: { size?: number }) => {
   return (
     <View style={{ alignItems: 'center', justifyContent: 'center', minHeight: size }}>
-      <SvgXml xml={spineIconXml} width={size * 1.38} height={size} />
+      <SvgXml xml={spineIconXml} width={size * (83 / 58)} height={size} />
     </View>
   );
 };

@@ -39,7 +39,7 @@ function IconBox({ name }: { name: React.ComponentProps<typeof Ionicons>['name']
 }
 
 export default function ProfileScreen({ navigation }: any) {
-  const { theme, mode, setMode } = useTheme();
+  const { theme, setMode } = useTheme();
   const { profile, user, logout, updateName, deleteAccount } = useAuth();
   const [settings, setSettings] = useState<ProfileSettings>(DEFAULT_SETTINGS);
   const [timePickerVisible, setTimePickerVisible] = useState(false);
@@ -98,7 +98,6 @@ export default function ProfileScreen({ navigation }: any) {
   const initials = name.split(/\s+/).slice(0, 2).map((part: string) => part[0]).join('').toUpperCase();
   const completedFields = [profile?.name, email].filter(Boolean).length;
   const completion = Math.round((completedFields / 2) * 100);
-  const isDarkMode = mode === 'dark';
 
   const row = (icon: React.ComponentProps<typeof Ionicons>['name'], title: string, subtitle: string, onPress: () => void) => (
     <Pressable onPress={onPress} style={{ minHeight: 66, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 11 }}>
@@ -192,14 +191,16 @@ export default function ProfileScreen({ navigation }: any) {
                 <Text style={{ color: '#FFD66B', fontSize: 12, marginLeft: 4 }}>Premium member</Text>
               </View>
             </View>
+            {/* Restore this switch when dark mode is ready to be enabled:
             <Switch
-              value={isDarkMode}
+              value={theme.dark}
               onValueChange={value => setMode(value ? 'dark' : 'light')}
               trackColor={{ false: PINK, true: '#7786B0' }}
-              thumbColor={isDarkMode ? '#E8ECFA' : '#FFD66B'}
+              thumbColor={theme.dark ? '#E8ECFA' : '#FFD66B'}
               ios_backgroundColor={PINK}
               style={{ transform: [{ scale: 0.82 }] }}
             />
+            */}
           </View>
 
           <View style={{ marginTop: 14, gap: 8 }}>

@@ -21,13 +21,13 @@ export default function SignupScreen({ navigation }: any) {
     <Screen edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 7, paddingBottom: 22, flexGrow: 1 }} keyboardShouldPersistTaps="handled">
         <View style={{ height: 42, justifyContent: 'center' }}>
-          <Pressable onPress={() => navigation.goBack()} hitSlop={10} style={{ width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.48)', alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="chevron-back" size={16} color="#fff" />
+          <Pressable onPress={() => navigation.goBack()} hitSlop={10} style={{ width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="chevron-back" size={16} color="#000" />
           </Pressable>
-          <View style={{ position: 'absolute', alignSelf: 'center' }}><Logo size={38} /></View>
+          <View style={{ position: 'absolute', alignSelf: 'center' }}><Logo size={40} /></View>
         </View>
-        <Text style={{ color: '#080A12', fontSize: 23, lineHeight: 31, fontWeight: '700', marginTop: 27 }}>Create your account</Text>
-        <Text style={{ color: '#14121A', fontSize: 12, marginBottom: 9 }}>Your journey to better spine health starts here.</Text>
+        <Text style={{ color: '#080A12', fontSize: 28, lineHeight: 31, fontWeight: '700', marginTop: 27 }}>Create your account</Text>
+        <Text style={{ color: '#14121A', fontSize: 14, marginBottom: 9 }}>Your journey to better spine health starts here.</Text>
 
         <Text style={label}>Email</Text>
         <Input icon="mail-outline" placeholder="Email address" keyboardType="email-address" value={email} onChangeText={setEmail} containerStyle={fieldStyle} />
@@ -37,14 +37,14 @@ export default function SignupScreen({ navigation }: any) {
           <View style={{ height: 4, flex: 1, backgroundColor: pw.length >= 6 ? '#123D86' : '#B7A4CC', borderRadius: 4 }} />
           <View style={{ height: 4, flex: 1, backgroundColor: pw.length >= 10 ? '#123D86' : '#B7A4CC', borderRadius: 4 }} />
         </View>
-        <Text style={{ color: '#68779B', fontSize: 10, marginBottom: 19, marginLeft: 6 }}>{pw.length >= 10 ? 'Strong password — nice work.' : pw.length >= 6 ? 'Good — add a symbol to make it strong.' : 'Use at least 6 characters for your password.'}</Text>
+        <Text style={{ color: '#68779B', fontSize: 12, marginBottom: 19, marginLeft: 6 }}>{pw.length >= 10 ? 'Strong password — nice work.' : pw.length >= 6 ? 'Good — add a symbol to make it strong.' : 'Use at least 6 characters for your password.'}</Text>
 
         <Pressable onPress={() => setAgree(!agree)} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 18 }}>
           <View style={{ width: 16, height: 16, borderRadius: 4, backgroundColor: agree ? '#123D86' : 'transparent', borderColor: '#123D86', borderWidth: 1, alignItems: 'center', justifyContent: 'center' }}>{agree && <Ionicons name="checkmark" size={13} color="#fff" />}</View>
-          <Text style={{ color: '#697597', fontSize: 10, marginLeft: 10, flex: 1 }}>I agree to the <Text style={{ color: '#103477', fontWeight: '600' }}>Terms of Service</Text> and <Text style={{ color: '#103477', fontWeight: '600' }}>Privacy Policy.</Text></Text>
+          <Text style={{ color: '#697597', fontSize: 12, marginLeft: 10, flex: 1 }}>I agree to the <Text style={{ color: '#103477', fontWeight: '600' }}>Terms of Service</Text> and <Text style={{ color: '#103477', fontWeight: '600' }}>Privacy Policy.</Text></Text>
         </Pressable>
         <Button title="Create Account" onPress={submit} loading={busy} style={{ height: 50, borderRadius: 16, backgroundColor: '#103F8E' }} />
-        <Text style={{ textAlign: 'center', marginTop: 'auto', paddingTop: 30, fontSize: 10, color: '#47434D' }}>
+        <Text style={{ textAlign: 'center', marginTop: 'auto', paddingTop: 30, fontSize: 12, color: '#47434D' }}>
           Already have an account? <Text onPress={() => navigation.goBack()} style={{ color: '#103477', fontWeight: '700' }}>Sign In</Text>
         </Text>
       </ScrollView>
@@ -52,5 +52,5 @@ export default function SignupScreen({ navigation }: any) {
   );
 }
 
-const label = { color: '#103477', fontSize: 10, fontWeight: '600' as const, marginBottom: 7 };
-const fieldStyle = { height: 46, borderRadius: 15, borderColor: 'rgba(255,255,255,0.95)', backgroundColor: 'rgba(255,255,255,0.56)', marginBottom: 14, shadowColor: '#48327D', shadowOpacity: 0.12, shadowRadius: 8, shadowOffset: { width: 0, height: 5 }, elevation: 3 } as const;
+const label = { color: '#103477', fontSize: 12, fontWeight: '600' as const, marginBottom: 7 };
+const fieldStyle = { height: 50, borderRadius: 15, borderColor: 'rgba(255,255,255,0.98)', backgroundColor: '#FFFFFF', marginBottom: 14, shadowColor: '#4C1D95', shadowOpacity: 0.38, shadowRadius: 13, shadowOffset: { width: 0, height: 9 }, elevation: 7 } as const;
