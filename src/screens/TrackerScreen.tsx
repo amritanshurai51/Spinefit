@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, Switch, View } from 'react-native';
+import { Alert, Pressable, ScrollView, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Circle, Svg } from 'react-native-svg';
+import { Circle, Svg, SvgXml } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Pedometer } from 'expo-sensors';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,11 +11,12 @@ import { Screen } from '../components/ui';
 import { useTheme } from '../theme/ThemeContext';
 import { registerForNotifications, setReminder } from '../services/notifications';
 import { WaterBody } from '../components/WaterBody';
-import { useWaterIntake, WATER_GLASS_ML } from '../store/useWaterIntake';
+import { WaterMugIcon } from '../components/WaterMugIcon';
+import { useWaterIntake } from '../store/useWaterIntake';
+import { expandIconXml } from '../assets/expandIconXml';
 
 const STEP_GOAL = 8000;
-const WATER_GOAL = 12;
-const GLASS_ML = WATER_GLASS_ML;
+const WATER_SETTINGS_KEY = 'water-intake-settings';
 
 const REMINDERS = [
   { key: 'steps', icon: 'walk', title: 'Step goal check-in', subtitle: 'Every 2 hours, 9am–6pm' },
@@ -46,7 +47,15 @@ export default function TrackerScreen() {
   const navigation = useNavigation<any>();
   const [view, setView] = useState<TrackerView>('dashboard');
   const [steps, setSteps] = useState(0);
-  const { glasses, current: todayWater, changeIntake, week: savedWaterWeek, save: saveWater, saving: savingWater, dirty: waterDirty, error: waterError, reload: reloadWater } = useWaterIntake();
+  const { current: todayWater, changeIntake, week: savedWaterWeek, save: saveWater, saveDay: saveWaterDay, saving: savingWater, dirty: waterDirty, error: waterError, reload: reloadWater } = useWaterIntake();
+  const [glassSize, setGlassSize] = useState(300);
+  const [dailyGoalMl, setDailyGoalMl] = useState(3000);
+  const [draftGlassSize, setDraftGlassSize] = useState(300);
+  const [draftGoalMl, setDraftGoalMl] = useState(3000);
+  const [customizeWater, setCustomizeWater] = useState(false);
+  const [editingWaterHistory, setEditingWaterHistory] = useState(false);
+  const [historyDraft, setHistoryDraft] = useState<Record<string, number>>({});
+  const [savingWaterHistory, setSavingWaterHistory] = useState(false);
   const [stepWeek, setStepWeek] = useState<DayValue[]>([]);
   const [reminderEnabled, setReminderEnabled] = useState<Record<string, boolean>>({ steps: true, water: false, exercise: true });
   const today = useMemo(() => new Date(), []);
@@ -55,8 +64,22 @@ export default function TrackerScreen() {
     const unsubscribe = navigation.addListener('focus', () => { void reloadWater(); });
     return unsubscribe;
   }, [navigation, reloadWater]);
+  useEffect(() => {
+    AsyncStorage.getItem(WATER_SETTINGS_KEY).then(raw => {
+      if (!raw) return;
+      const settings = JSON.parse(raw);
+      const savedGlass = [300, 400, 500].includes(settings.glassSize) ? settings.glassSize : 300;
+      const savedGoal = Math.max(2000, Math.min(5000, Math.round((Number(settings.dailyGoalMl) || 3000) / 300) * 300));
+      setGlassSize(savedGlass);
+      setDailyGoalMl(savedGoal);
+      setDraftGlassSize(savedGlass);
+      setDraftGoalMl(savedGoal);
+    }).catch(() => {});
+  }, []);
+  const glasses = Math.round(todayWater / glassSize);
+  const goalGlasses = Math.ceil(dailyGoalMl / glassSize);
   const stepPercent = Math.min(100, Math.round((steps / STEP_GOAL) * 100));
-  const waterPercent = Math.min(100, Math.round((glasses / WATER_GOAL) * 100));
+  const waterPercent = Math.min(100, Math.round((todayWater / dailyGoalMl) * 100));
   const weekLabel = `${weekDates(today)[0].toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
 
   const syncSteps = useCallback(async () => {
@@ -79,6 +102,13 @@ export default function TrackerScreen() {
   }).map(day => dateKey(day.date) === todayKey && waterDirty
     ? { ...day, value: todayWater / 1000 }
     : day);
+  const editableWaterDays = [0, 1, 2].map(offset => {
+    const date = new Date(today);
+    date.setDate(date.getDate() - offset);
+    const key = dateKey(date);
+    const savedMl = offset === 0 ? todayWater : savedWaterWeek.find(day => day.day === key)?.water_ml ?? 0;
+    return { key, title: offset === 0 ? 'Today' : offset === 1 ? 'Yesterday' : dayLabel(date).toUpperCase(), savedMl, savedGlasses: Math.round(savedMl / glassSize) };
+  });
 
   const loadStepWeek = useCallback(async () => {
     try {
@@ -113,7 +143,37 @@ export default function TrackerScreen() {
   }, [todayKey, syncSteps, loadStepWeek]);
 
   const addWater = (amount: number) => {
-    changeIntake(amount * GLASS_ML);
+    changeIntake(amount * glassSize);
+  };
+
+  const saveWaterSettings = async () => {
+    await AsyncStorage.setItem(WATER_SETTINGS_KEY, JSON.stringify({ glassSize: draftGlassSize, dailyGoalMl: draftGoalMl }));
+    setGlassSize(draftGlassSize);
+    setDailyGoalMl(draftGoalMl);
+    setCustomizeWater(false);
+  };
+
+  const beginWaterHistoryEdit = () => {
+    setHistoryDraft(Object.fromEntries(editableWaterDays.map(day => [day.key, day.savedGlasses])));
+    setEditingWaterHistory(true);
+  };
+
+  const saveWaterHistory = async () => {
+    setSavingWaterHistory(true);
+    try {
+      for (const day of editableWaterDays) {
+        const count = historyDraft[day.key] ?? day.savedGlasses;
+        const value = count * glassSize;
+        if (count !== day.savedGlasses) await saveWaterDay(day.key, value);
+      }
+      await reloadWater();
+      setEditingWaterHistory(false);
+      Alert.alert('Saved', 'Your water intake history was updated.');
+    } catch (error: any) {
+      Alert.alert('Could not save', error?.detail ?? error?.message ?? 'Please try again. The server may only allow edits for the last three days.');
+    } finally {
+      setSavingWaterHistory(false);
+    }
   };
 
   const toggleReminder = async (key: string, enabled: boolean) => {
@@ -142,22 +202,22 @@ export default function TrackerScreen() {
   );
 
   const waterControl = (compact = false) => (
-    <View style={{ height: compact ? 52 : 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 30, paddingHorizontal: 9, backgroundColor: '#0E448F' }}>
-      <Pressable onPress={() => addWater(-1)} style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: '#255493', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' }}>
-        <Ionicons name="remove" size={21} color="#DDE9FF" />
+    <View style={{ height: compact ? 56 : 66, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 33, paddingHorizontal: 10, backgroundColor: '#0E448F' }}>
+      <Pressable onPress={() => addWater(-1)} style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: '#255493', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' }}>
+        <Ionicons name="remove" size={24} color="#DDE9FF" />
       </Pressable>
       <View style={{ alignItems: 'center' }}>
-        <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>{glasses} {glasses === 1 ? 'glass' : 'glasses'}</Text>
-        <Text style={{ color: '#C8D6F2', fontSize: 10, marginTop: 2 }}>Tap glass when sip</Text>
+        <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>{glasses} {glasses === 1 ? 'glass' : 'glasses'}</Text>
+        <Text style={{ color: '#C8D6F2', fontSize: 12, marginTop: 2 }}>Tap glass when sip</Text>
       </View>
-      <Pressable onPress={() => addWater(1)} style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0CA8EE' }}>
-        <Ionicons name="water" size={19} color="#fff" />
+      <Pressable onPress={() => addWater(1)} style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0CA8EE' }}>
+        <WaterMugIcon size={22} color="#fff" />
       </Pressable>
     </View>
   );
 
   const stepChart = (data: DayValue[], compact = false) => {
-    const chartHeight = compact ? 104 : 146;
+    const chartHeight = compact ? 116 : 164;
     const maxValue = Math.max(STEP_GOAL, ...data.map(day => day.value), 1);
     return (
       <View style={{ height: chartHeight, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingTop: 18 }}>
@@ -166,9 +226,9 @@ export default function TrackerScreen() {
           const isToday = dateKey(day.date) === todayKey;
           return (
             <View key={dateKey(day.date)} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
-              <Text style={{ color: isToday ? '#FFE6A6' : '#C8D5F2', fontSize: 8, marginBottom: 4 }}>{day.value ? formatCompact(day.value) : ''}</Text>
+              <Text style={{ color: isToday ? '#FFE6A6' : '#C8D5F2', fontSize: 10, marginBottom: 4 }}>{day.value ? formatCompact(day.value) : ''}</Text>
               <View style={{ width: compact ? 20 : 26, height, borderRadius: 7, backgroundColor: isToday ? '#F2D486' : index === 3 ? '#5DC9F2' : '#F2B6F1' }} />
-              <Text style={{ color: '#E3E9FB', fontSize: 8, marginTop: 5 }}>{day.label}</Text>
+              <Text style={{ color: '#E3E9FB', fontSize: 10, marginTop: 5 }}>{day.label}</Text>
             </View>
           );
         })}
@@ -177,20 +237,20 @@ export default function TrackerScreen() {
   };
 
   const waterChart = () => {
-    const chartHeight = 165;
+    const chartHeight = 180;
     const maxValue = Math.max(2, ...waterWeek.map(day => day.value));
     return (
       <View style={{ height: chartHeight, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingTop: 18 }}>
         {waterWeek.map(day => {
           const isToday = dateKey(day.date) === todayKey;
-          const height = Math.max(8, (day.value / maxValue) * 91);
-          const reached = day.value >= WATER_GOAL * GLASS_ML / 1000;
+          const height = Math.max(8, (day.value / maxValue) * 104);
+          const reached = day.value >= dailyGoalMl / 1000;
           return (
             <View key={dateKey(day.date)} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
-              <Text style={{ color: isToday ? '#FFE5A7' : '#D8E1F7', fontSize: 9, marginBottom: 5 }}>{day.value.toFixed(1)}</Text>
+              <Text style={{ color: isToday ? '#FFE5A7' : '#D8E1F7', fontSize: 10, marginBottom: 5 }}>{day.value.toFixed(1)}</Text>
               <View style={{ width: 23, height, borderRadius: 7, backgroundColor: isToday ? '#F2D486' : reached ? '#45C4EE' : '#817FE2' }} />
-              <Text style={{ color: '#EDF0FA', fontSize: 8, marginTop: 7 }}>{day.label}</Text>
-              <Text style={{ color: '#B9C7E9', fontSize: 8 }}>{day.date.getDate()}</Text>
+              <Text style={{ color: '#EDF0FA', fontSize: 9, marginTop: 7 }}>{day.label}</Text>
+              <Text style={{ color: '#B9C7E9', fontSize: 9 }}>{day.date.getDate()}</Text>
             </View>
           );
         })}
@@ -212,55 +272,58 @@ export default function TrackerScreen() {
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, marginBottom: 7 }}>
         <Pressable onPress={() => setView('steps')}><Text style={{ color: theme.text, fontSize: 17, fontWeight: '800' }}>Steps</Text></Pressable>
-        <Pressable onPress={() => setView('steps')} style={editPill}><Ionicons name="create-outline" size={18} color={navy} /><Text style={editText}>Edit</Text></Pressable>
+        {/* <Pressable onPress={() => setView('steps')} style={editPill}><Ionicons name="create-outline" size={18} color={navy} /><Text style={editText}>Edit</Text></Pressable> */}
       </View>
       <LinearGradient colors={panel} style={dashboardCard}>
-        <Pressable onPress={() => setView('steps')} style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-          {progressRing(stepPercent, 78, '#F3D486', <View style={{ alignItems: 'center' }}><Ionicons name="walk" size={18} color="#fff" /><Text style={{ color: '#fff', fontSize: 11, fontWeight: '800', marginTop: 1 }}>{stepPercent}%</Text><Text style={{ color: '#D6E0F6', fontSize: 7 }}>of goal</Text></View>)}
+        <Pressable onPress={() => setView('steps')} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flex: 1, paddingRight: 25, position: 'relative' }}>
+          <SvgXml xml={expandIconXml} width={25} height={25} style={{ position: 'absolute', top: 0, right: 0 }} />
+          {progressRing(stepPercent, 110, '#F3D486', <View style={{ alignItems: 'center' }}><Ionicons name="walk" size={25} color="#fff" /><Text style={{ color: '#fff', fontSize: 15.3, fontWeight: '800', marginTop: 1 }}>{stepPercent}%</Text><Text style={{ color: '#D6E0F6', fontSize: 9.69 }}>of goal</Text></View>)}
           <View style={{ marginLeft: 15, flex: 1 }}>
-            <Text style={{ color: mutedOnPanel, fontSize: 11 }}>Steps today</Text>
+            <Text style={{ color: mutedOnPanel, fontSize: 12.24 }}>Steps today</Text>
             <Text style={{ color: '#fff', fontSize: 20, fontWeight: '800', marginVertical: 1 }}>{steps.toLocaleString()}</Text>
-            <Text style={{ color: '#D3DDF2', fontSize: 9 }}>{Math.max(0, STEP_GOAL - steps).toLocaleString()} to go</Text>
+            <Text style={{ color: '#D3DDF2', fontSize: 12.24 }}>{Math.max(0, STEP_GOAL - steps).toLocaleString()} to go</Text>
           </View>
-          <Ionicons name="chevron-forward-circle-outline" size={17} color="#C8D6F2" />
         </Pressable>
-        <Pressable onPress={() => void syncSteps()} style={syncPill}><Ionicons name="sync-outline" size={11} color="#fff" /><Text style={{ color: '#fff', fontSize: 9, marginLeft: 4 }}>Sync now</Text></Pressable>
+        <Pressable onPress={() => void syncSteps()} style={syncPill}><Ionicons name="sync-outline" size={13} color="#fff" /><Text style={{ color: '#fff', fontSize: 11.73, marginLeft: 4 }}>Sync now</Text></Pressable>
       </LinearGradient>
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 19, marginBottom: 7 }}>
         <Pressable onPress={() => setView('water')}><Text style={{ color: theme.text, fontSize: 17, fontWeight: '800' }}>Water Intake</Text></Pressable>
-        <Pressable onPress={() => setView('water')} style={editPill}><Ionicons name="create-outline" size={18} color={navy} /><Text style={editText}>Edit</Text></Pressable>
+        <Pressable disabled={savingWater || !waterDirty} onPress={() => void saveWater().then(ok => { if (ok) Alert.alert('Saved', 'Today\'s water intake was saved to your account.'); })} style={{ minWidth: 62, minHeight: 32, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, borderRadius: 16, backgroundColor: savingWater || !waterDirty ? '#A7B2C8' : navy }}><Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>{savingWater ? 'Saving…' : 'Save'}</Text></Pressable>
       </View>
       <LinearGradient colors={panel} style={dashboardCard}>
-        <Pressable onPress={() => setView('water')} style={{ flexDirection: 'row', alignItems: 'center' }}>
-          {progressRing(waterPercent, 68, '#59D4FB', <View style={{ alignItems: 'center' }}><Ionicons name="water" size={15} color="#fff" /><Text style={{ color: '#fff', fontSize: 9, fontWeight: '800' }}>{glasses}/{WATER_GOAL}</Text><Text style={{ color: '#D6E0F6', fontSize: 6 }}>glasses</Text></View>)}
+        <Pressable onPress={() => setView('water')} style={{ flexDirection: 'row', alignItems: 'center', paddingRight: 25, position: 'relative' }}>
+          {progressRing(waterPercent, 92, '#59D4FB', <View style={{ alignItems: 'center' }}><WaterMugIcon size={20} color="#fff" /><Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>{glasses}/{goalGlasses}</Text><Text style={{ color: '#D6E0F6', fontSize: 9 }}>glasses</Text></View>)}
           <View style={{ marginLeft: 14, flex: 1 }}>
-            <Text style={{ color: mutedOnPanel, fontSize: 11   }}>Water logged</Text>
-            <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800', marginVertical: 2 }}>{(todayWater / 1000).toFixed(2)} L</Text>
-            <Text style={{ color: '#D3DDF2', fontSize: 11 }}>of {WATER_GOAL * GLASS_ML / 1000} L daily goal</Text>
+            <Text style={{ color: mutedOnPanel, fontSize: 12.24 }}>Water logged</Text>
+            <Text style={{ color: '#fff', fontSize: 19, fontWeight: '800', marginVertical: 2 }}>{(todayWater / 1000).toFixed(2)} L</Text>
+            <Text style={{ color: '#D3DDF2', fontSize: 12.24 }}>of {(dailyGoalMl / 1000).toFixed(1)} L daily goal</Text>
           </View>
-          <Ionicons name="chevron-forward-circle-outline" size={17} color="#C8D6F2" />
+          <SvgXml xml={expandIconXml} width={25} height={25} style={{ position: 'absolute', top: 0, right: 0 }} />
         </Pressable>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginVertical: 12, paddingHorizontal: 1 }}>
-          {Array.from({ length: WATER_GOAL }).map((_, index) => <View key={index} style={{ width: 23, height: 24, borderRadius: 6, backgroundColor: index < glasses ? 'rgba(81,211,250,0.25)' : 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: index < glasses ? '#55D3F6' : 'rgba(255,255,255,0.17)', alignItems: 'center', justifyContent: 'center' }}><Ionicons name="water" size={13} color={index < glasses ? '#69DCFC' : '#A6B7D9'} /></View>)}
+          {Array.from({ length: goalGlasses }).map((_, index) => <View key={index} style={{ width: 23, height: 24, borderRadius: 6, backgroundColor: index < glasses ? 'rgba(81,211,250,0.25)' : 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: index < glasses ? '#55D3F6' : 'rgba(255,255,255,0.17)', alignItems: 'center', justifyContent: 'center' }}><WaterMugIcon size={13} color={index < glasses ? '#69DCFC' : '#A6B7D9'} /></View>)}
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Pressable onPress={() => addWater(-1)} style={smallControl}><Ionicons name="remove" size={18} color="#fff" /></Pressable>
-          <Pressable onPress={() => setView('water')} style={{ alignItems: 'center' }}><Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>{glasses} {glasses === 1 ? 'glass' : 'glasses'}</Text><Text style={{ color: mutedOnPanel, fontSize: 10, marginTop: 2 }}>Tap + to log</Text></Pressable>
-          <Pressable onPress={() => addWater(1)} style={[smallControl, { backgroundColor: '#10B6F3', borderColor: 'transparent' }]}><Ionicons name="add" size={18} color="#fff" /></Pressable>
+          <Pressable onPress={() => addWater(-1)} style={smallControl}><Ionicons name="remove" size={22} color="#fff" /></Pressable>
+          <Pressable onPress={() => setView('water')} style={{ alignItems: 'center' }}><Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>{glasses} {glasses === 1 ? 'glass' : 'glasses'}</Text><Text style={{ color: mutedOnPanel, fontSize: 11, marginTop: 2 }}>Tap + to log</Text></Pressable>
+          <Pressable onPress={() => addWater(1)} style={[smallControl, { backgroundColor: 'transparent', borderColor: 'transparent', overflow: 'hidden' }]}>
+            <LinearGradient colors={['#4ADAFF', '#00AAFF']} style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, borderRadius: 30 }} />
+            <Ionicons name="add" size={22} color="#fff" />
+          </Pressable>
         </View>
       </LinearGradient>
 
       <Text style={{ color: theme.text, fontSize: 17, fontWeight: '800', marginTop: 21, marginBottom: 7 }}>Reminders</Text>
       <LinearGradient colors={panel} style={{ borderRadius: 20, paddingVertical: 7, paddingHorizontal: 12 }}>
         {REMINDERS.map(reminder => (
-          <View key={reminder.key} style={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', borderBottomWidth: reminder.key === 'exercise' ? 0 : 1, borderBottomColor: 'rgba(255,255,255,0.09)' }}>
-            <View style={reminderIcon}><Ionicons name={reminder.icon as any} size={15} color="#F1D0F6" /></View>
-            <View style={{ flex: 1, marginLeft: 10 }}><Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>{reminder.title}</Text><Text style={{ color: mutedOnPanel, fontSize: 10, marginTop: 2 }}>{reminder.subtitle}</Text></View>
-            <Switch value={!!reminderEnabled[reminder.key]} onValueChange={enabled => void toggleReminder(reminder.key, enabled)} trackColor={{ true: '#E879F9', false: '#53658A' }} thumbColor="#fff" />
+          <View key={reminder.key} style={{ minHeight: 60, flexDirection: 'row', alignItems: 'center', borderBottomWidth: reminder.key === 'exercise' ? 0 : 1, borderBottomColor: 'rgba(255,255,255,0.09)' }}>
+            <View style={reminderIcon}>{reminder.key === 'water' ? <WaterMugIcon size={20} color="#F1D0F6" /> : <Ionicons name={reminder.icon as any} size={20} color="#F1D0F6" />}</View>
+            <View style={{ flex: 1, marginLeft: 10 }}><Text style={{ color: '#fff', fontSize: 14.28, fontWeight: '500' }}>{reminder.title}</Text><Text style={{ color: mutedOnPanel, fontSize: 12.24, marginTop: 2 }}>{reminder.subtitle}</Text></View>
+            <ReminderToggle value={!!reminderEnabled[reminder.key]} onValueChange={enabled => void toggleReminder(reminder.key, enabled)} />
           </View>
         ))}
-        <View style={{ flexDirection: 'row', alignItems: 'center', paddingTop: 7 }}><View style={reminderIcon}><Ionicons name="moon-outline" size={15} color="#F1D0F6" /></View><View style={{ marginLeft: 10 }}><Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Quiet hours</Text><Text style={{ color: mutedOnPanel, fontSize: 10, marginTop: 2 ,marginBottom: 10 }}>No reminders 9 PM – 7 AM</Text></View></View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingTop: 7 }}><View style={reminderIcon}><Ionicons name="moon-outline" size={20} color="#F1D0F6" /></View><View style={{ marginLeft: 10 }}><Text style={{ color: '#fff', fontSize: 14.28, fontWeight: '600' }}>Quiet hours</Text><Text style={{ color: mutedOnPanel, fontSize: 12.24, marginTop: 2, marginBottom: 10 }}>No reminders 9 PM – 7 AM</Text></View></View>
       </LinearGradient>
     </>
   );
@@ -268,22 +331,22 @@ export default function TrackerScreen() {
   const renderSteps = () => (
     <>
       <DetailHeader title="Steps" onBack={() => setView('dashboard')} />
-      <View style={{ alignItems: 'center', paddingTop: 18, paddingBottom: 17 }}>
-        {progressRing(stepPercent, 116, '#E5B900', <View style={{ alignItems: 'center' }}><Ionicons name="walk" size={19} color={navy} /><Text style={{ color: navy, fontSize: 15, fontWeight: '800', marginTop: 1 }}>{stepPercent}%</Text><Text style={{ color: '#62739B', fontSize: 9 }}>of goal</Text></View>)}
-        <Text style={{ color: '#344F85', fontSize: 25, fontWeight: '800', marginTop: 15 }}>{steps.toLocaleString()}</Text>
-        <Text style={{ color: '#536A99', fontSize: 12 }}>{Math.max(0, STEP_GOAL - steps).toLocaleString()} to go</Text>
-        <Pressable onPress={() => void syncSteps()} style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.8)', paddingVertical: 7, paddingHorizontal: 13, marginTop: 9 }}><Ionicons name="sync-outline" size={11} color={navy} /><Text style={{ color: navy, fontSize: 9, marginLeft: 4 }}>Sync now</Text></Pressable>
-        <Text style={{ color: theme.subtext, fontSize: 9, marginTop: 11 }}>Last synced at {new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</Text>
+      <View style={{ alignItems: 'center', paddingTop: 22, paddingBottom: 21 }}>
+        {progressRing(stepPercent, 140, '#E5B900', <View style={{ alignItems: 'center' }}><Ionicons name="walk" size={25} color={navy} /><Text style={{ color: navy, fontSize: 19.33, fontWeight: '800', marginTop: 2 }}>{stepPercent}%</Text><Text style={{ color: '#62739B', fontSize: 12.24 }}>of goal</Text></View>)}
+        <Text style={{ color: '#344F85', fontSize: 32, fontWeight: '700', marginTop: 17 }}>{steps.toLocaleString()}</Text>
+        <Text style={{ color: '#536A99', fontSize: 18 }}>{Math.max(0, STEP_GOAL - steps).toLocaleString()} to go</Text>
+        <Pressable onPress={() => void syncSteps()} style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.8)', paddingVertical: 9, paddingHorizontal: 15, marginTop: 11 }}><Ionicons name="sync-outline" size={14} color={navy} /><Text style={{ color: navy, fontSize: 11.73, marginLeft: 5 }}>Sync now</Text></Pressable>
+        <Text style={{ color: theme.subtext, fontSize: 14, marginTop: 12 }}>Last synced at {new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</Text>
       </View>
-      <View style={{ flexDirection: 'row', gap: 8, marginTop: 2, marginBottom: 19 }}>
+      <View style={{ flexDirection: 'row', gap: 10, marginTop: 2, marginBottom: 21 }}>
         <StatCard icon="walk" value={`${(steps * 0.00071).toFixed(1)}`} unit="km" colors={panel} />
         <StatCard icon="flame" value={`${Math.round(steps * 0.038)}`} unit="kcal" colors={panel} />
         <StatCard icon="stopwatch-outline" value={`${Math.round(steps / 125)}`} unit="Active min" colors={panel} />
       </View>
-      <LinearGradient colors={panel} style={{ borderRadius: 21, padding: 16, marginBottom: 18 }}>
+      <LinearGradient colors={panel} style={{ borderRadius: 21, padding: 18, marginBottom: 18 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View><Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>Daily Steps</Text><Text style={{ color: mutedOnPanel, fontSize: 9, marginTop: 3 }}>Average {Math.round(stepWeek.reduce((sum, day) => sum + day.value, 0) / Math.max(1, stepWeek.length)).toLocaleString()} steps a day</Text></View>
-          <View style={{ borderWidth: 1, borderColor: '#ffffff55', borderRadius: 16, paddingHorizontal: 9, paddingVertical: 6, flexDirection: 'row', alignItems: 'center' }}><Ionicons name="options-outline" size={12} color="#fff" /><Text style={{ color: '#fff', fontSize: 9, marginLeft: 4 }}>7 Days</Text></View>
+          <View><Text style={{ color: '#fff', fontSize: 16, fontWeight: '800' }}>Daily Steps</Text><Text style={{ color: mutedOnPanel, fontSize: 11, marginTop: 3 }}>Average {Math.round(stepWeek.reduce((sum, day) => sum + day.value, 0) / Math.max(1, stepWeek.length)).toLocaleString()} steps a day</Text></View>
+          <View style={{ borderWidth: 1, borderColor: '#ffffff55', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 7, flexDirection: 'row', alignItems: 'center' }}><Ionicons name="options-outline" size={15} color="#fff" /><Text style={{ color: '#fff', fontSize: 11, marginLeft: 5 }}>7 Days</Text></View>
         </View>
         <View style={{ marginTop: 10, borderTopWidth: 1, borderStyle: 'dashed', borderColor: '#ffffff44' }} />
         {stepChart(stepWeek)}
@@ -294,17 +357,55 @@ export default function TrackerScreen() {
 
   const renderWater = () => (
     <>
-      <DetailHeader title="Water intake" onBack={() => setView('dashboard')} action={<Pressable onPress={() => Alert.alert('Water goal', `Your daily goal is ${WATER_GOAL * GLASS_ML / 1000} L (${WATER_GOAL} glasses).`)} style={editPill}><Ionicons name="create-outline" size={18} color={navy} /><Text style={editText}>Edit</Text></Pressable>} />
-      <View style={{ marginTop: 12, marginBottom: 18 }}>
-        <WaterBody current={todayWater} goal={WATER_GOAL * GLASS_ML} />
+      <DetailHeader title="Water intake" onBack={() => setView('dashboard')} action={<Pressable disabled={savingWater || !waterDirty} onPress={() => void saveWater().then(ok => { if (ok) Alert.alert('Saved', 'Today\'s water intake was saved to your account.'); })} style={{ minWidth: 62, minHeight: 32, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, borderRadius: 16, backgroundColor: savingWater || !waterDirty ? '#A7B2C8' : navy }}><Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>{savingWater ? 'Saving…' : 'Save'}</Text></Pressable>} />
+      <View style={{ marginTop: 18, marginBottom: 22 }}>
+        <WaterBody current={todayWater} goal={dailyGoalMl} />
       </View>
-      <Pressable onPress={() => navigation.navigate('WaterIntake')} style={{ alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 12, marginBottom: 8 }}><Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Manage water intake</Text></Pressable>
+      <Pressable onPress={() => navigation.navigate('WaterIntake')} style={{ alignSelf: 'center', paddingVertical: 8, paddingHorizontal: 14, marginBottom: 10 }}><Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }}>Manage water intake</Text></Pressable>
       {waterControl()}
       {waterError ? <Text style={{ color: '#B42318', fontSize: 12, marginTop: 12, textAlign: 'center' }}>{waterError}</Text> : null}
-      <Pressable disabled={savingWater || !waterDirty} onPress={() => void saveWater().then(ok => { if (ok) Alert.alert('Saved', 'Today\'s water intake was saved to your account.'); })} style={{ alignItems: 'center', justifyContent: 'center', minHeight: 46, borderRadius: 15, backgroundColor: waterDirty ? navy : '#8998B6', marginTop: 12 }}>
-        <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>{savingWater ? 'Saving…' : waterDirty ? 'Save water intake' : 'All changes saved'}</Text>
+      <Pressable onPress={() => { setDraftGlassSize(glassSize); setDraftGoalMl(dailyGoalMl); setCustomizeWater(value => !value); }} style={{ alignSelf: 'center', paddingVertical: 10, paddingHorizontal: 14, marginTop: 3, marginBottom: 11 }}>
+        <Text style={{ color: theme.dark ? '#F4B7F2' : '#242076', fontSize: 13, fontWeight: '600', textDecorationLine: 'underline' }}>Customise Your Glass</Text>
       </Pressable>
-      <LinearGradient colors={panel} style={{ borderRadius: 22, padding: 16, marginTop: 20, marginBottom: 18 }}>
+      {customizeWater ? <LinearGradient colors={panel} style={{ borderRadius: 23, padding: 17, marginBottom: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' }}>
+        <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800' }}>Glass size</Text>
+        <Text style={{ color: mutedOnPanel, fontSize: 12, marginTop: 4, marginBottom: 12 }}>Choose how much you sip per glass</Text>
+        <View style={{ flexDirection: 'row', gap: 7 }}>
+          {[300, 400, 500].map(size => <Pressable key={size} onPress={() => setDraftGlassSize(size)} style={{ flex: 1, height: 58, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: draftGlassSize === size ? '#F4B4EE' : 'rgba(255,255,255,0.09)', borderWidth: 1, borderColor: draftGlassSize === size ? '#F4B4EE' : 'rgba(255,255,255,0.26)' }}><WaterMugIcon size={19} color={draftGlassSize === size ? '#123B82' : '#66D5FA'} /><Text style={{ color: draftGlassSize === size ? '#162657' : '#fff', fontSize: 14, fontWeight: '700', marginTop: 2 }}>{size} ml</Text></Pressable>)}
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 18 }}>
+          <View><Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>Daily goal</Text><Text style={{ color: mutedOnPanel, fontSize: 11, marginTop: 2 }}>Adjust in 300 ml steps · 2–5 L</Text></View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+            <Pressable disabled={draftGoalMl <= 2000} onPress={() => setDraftGoalMl(value => Math.max(2000, value - 300))} style={goalAdjust}><Ionicons name="remove" size={19} color="#fff" /></Pressable>
+            <Text style={{ color: '#F3B8F1', fontSize: 21, fontWeight: '800', minWidth: 48, textAlign: 'center' }}>{(draftGoalMl / 1000).toFixed(1)} L</Text>
+            <Pressable disabled={draftGoalMl >= 5000} onPress={() => setDraftGoalMl(value => Math.min(5000, value + 300))} style={goalAdjust}><Ionicons name="add" size={19} color="#fff" /></Pressable>
+          </View>
+        </View>
+        <Text style={{ color: mutedOnPanel, fontSize: 11, marginTop: 5 }}>About {Math.ceil(draftGoalMl / draftGlassSize)} glasses per day</Text>
+        <Pressable disabled={draftGlassSize === glassSize && draftGoalMl === dailyGoalMl} onPress={() => void saveWaterSettings()} style={{ height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 13, backgroundColor: draftGlassSize === glassSize && draftGoalMl === dailyGoalMl ? '#B58BBF' : '#F2B6F1' }}><Text style={{ color: '#182454', fontSize: 13, fontWeight: '800' }}>Save Changes</Text></Pressable>
+      </LinearGradient> : null}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, marginBottom: 9 }}>
+        <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }}>Water Analysis</Text>
+        <Pressable onPress={() => editingWaterHistory ? setEditingWaterHistory(false) : beginWaterHistoryEdit()} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 17, backgroundColor: navy }}><Ionicons name={editingWaterHistory ? 'close' : 'create-outline'} size={13} color="#fff" /><Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>{editingWaterHistory ? 'Cancel' : 'Edit'}</Text></Pressable>
+      </View>
+      {editingWaterHistory ? <LinearGradient colors={panel} style={{ borderRadius: 21, padding: 17, marginBottom: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
+        {editableWaterDays.map(day => {
+          const count = historyDraft[day.key] ?? day.savedGlasses;
+          const slots = Math.max(8, Math.min(18, Math.ceil(dailyGoalMl / glassSize) + 2));
+          return <View key={day.key} style={{ marginBottom: 14 }}>
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800', marginBottom: 8 }}>{day.title}</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              {Array.from({ length: slots }, (_, index) => <Pressable key={index} onPress={() => setHistoryDraft(current => ({ ...current, [day.key]: index < count ? index : index + 1 }))} style={{ width: 34, height: 37, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: index < count ? 'rgba(80,205,248,0.35)' : 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: index < count ? '#63D2F6' : 'rgba(255,255,255,0.15)' }}><WaterMugIcon size={17} color={index < count ? '#67D7FB' : '#9DADD0'} /></Pressable>)}
+            </View>
+            <Text style={{ color: mutedOnPanel, fontSize: 11, marginTop: 6 }}>{count} glasses · {((count * glassSize) / 1000).toFixed(1)} L</Text>
+          </View>;
+        })}
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 2 }}>
+          <Pressable onPress={beginWaterHistoryEdit} style={{ flex: 1, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#7894C7' }}><Text style={{ color: '#15346F', fontSize: 12, fontWeight: '800' }}>Redo Water Intake</Text></Pressable>
+          <Pressable disabled={savingWaterHistory} onPress={() => void saveWaterHistory()} style={{ flex: 1, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: savingWaterHistory ? '#B58BBF' : '#F2B6F1' }}><Text style={{ color: '#182454', fontSize: 12, fontWeight: '800' }}>{savingWaterHistory ? 'Saving…' : 'Save Changes'}</Text></Pressable>
+        </View>
+      </LinearGradient> : null}
+      <LinearGradient colors={panel} style={{ borderRadius: 22, padding: 18, marginTop: 20, marginBottom: 18 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View><Text style={{ color: '#fff', fontSize: 20, fontWeight: '800' }}>This week</Text><Text style={{ color: mutedOnPanel, fontSize: 9, marginTop: 3 }}>{weekLabel} · Litres per day</Text></View>
           <View style={{ borderWidth: 1, borderColor: '#ffffff55', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6 }}><Text style={{ color: '#fff', fontSize: 9 }}>7 DAYS</Text></View>
@@ -312,11 +413,11 @@ export default function TrackerScreen() {
         <View style={{ marginTop: 18, borderTopWidth: 1, borderStyle: 'dashed', borderColor: '#ffffff44' }} />
         {waterChart()}
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 13, gap: 12 }}><Legend color="#45C4EE" label="Goal reached" /><Legend color="#817FE2" label="Below goal" /><Legend color="#F2D486" label="Today" /></View>
-        <Text style={{ color: mutedOnPanel, fontSize: 9, marginTop: 8 }}>— — —  Goal {WATER_GOAL * GLASS_ML / 1000} L</Text>
+        <Text style={{ color: mutedOnPanel, fontSize: 9, marginTop: 8 }}>— — —  Goal {(dailyGoalMl / 1000).toFixed(1)} L</Text>
         <View style={{ flexDirection: 'row', gap: 7, marginTop: 15 }}>
           <WaterStat label="AVERAGE" value={`${(waterWeek.reduce((sum, day) => sum + day.value, 0) / 7).toFixed(1)} L`} detail="per day" />
           <WaterStat label="BEST DAY" value={`${Math.max(0, ...waterWeek.map(day => day.value)).toFixed(1)} L`} detail={waterWeek.find(day => day.value === Math.max(0, ...waterWeek.map(d => d.value)))?.label ?? '—'} />
-          <WaterStat label="GOAL MET" value={`${waterWeek.filter(day => day.value >= WATER_GOAL * GLASS_ML / 1000).length} / 7`} detail="days" />
+          <WaterStat label="GOAL MET" value={`${waterWeek.filter(day => day.value >= dailyGoalMl / 1000).length} / 7`} detail="days" />
         </View>
       </LinearGradient>
     </>
@@ -333,27 +434,42 @@ export default function TrackerScreen() {
 
 function DetailHeader({ title, onBack, action }: { title: string; onBack: () => void; action?: React.ReactNode }) {
   const { theme } = useTheme();
-  return <View style={{ height: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-    <Pressable onPress={onBack} style={{ width: 31, height: 31, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.34)' }}><Ionicons name="chevron-back" size={17} color={theme.text} /></Pressable>
-    <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700', textTransform: 'capitalize' }}>{title}</Text>
+  return <View style={{ height: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+    <Pressable onPress={onBack} style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.5)', shadowColor: '#FFFFFF', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 10, elevation: 2 }}><Ionicons name="chevron-back" size={21} color={theme.text} /></Pressable>
+    <Text style={{ color: theme.text, fontSize: 16, fontWeight: '700', textTransform: 'capitalize' }}>{title}</Text>
     <View style={{ minWidth: 38, alignItems: 'flex-end' }}>{action}</View>
   </View>;
 }
 
 function StatCard({ icon, value, unit, colors }: { icon: any; value: string; unit: string; colors: readonly [string, string] }) {
   return <LinearGradient colors={colors as [string, string]} style={{ flex: 1, borderRadius: 13, minHeight: 65, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 }}>
-    <Ionicons name={icon} size={14} color="#F2B6F1" /><Text style={{ color: '#fff', fontSize: 12, fontWeight: '800', marginTop: 3 }}>{value}</Text><Text style={{ color: '#CBD7F1', fontSize: 8 }}>{unit}</Text>
+    <Ionicons name={icon} size={17} color="#F2B6F1" /><Text style={{ color: '#fff', fontSize: 14, fontWeight: '800', marginTop: 3 }}>{value}</Text><Text style={{ color: '#CBD7F1', fontSize: 10 }}>{unit}</Text>
   </LinearGradient>;
 }
 
 function Legend({ color, label }: { color: string; label: string }) {
-  return <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: color }} /><Text style={{ color: '#D9E2F7', fontSize: 8 }}>{label}</Text></View>;
+  return <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><View style={{ width: 9, height: 9, borderRadius: 3, backgroundColor: color }} /><Text style={{ color: '#D9E2F7', fontSize: 10 }}>{label}</Text></View>;
 }
 
 function WaterStat({ label, value, detail }: { label: string; value: string; detail: string }) {
   return <View style={{ flex: 1, minHeight: 65, borderRadius: 13, borderWidth: 1, borderColor: 'rgba(255,255,255,0.19)', backgroundColor: 'rgba(255,255,255,0.035)', padding: 9, justifyContent: 'center' }}>
-    <Text style={{ color: '#CBD7F1', fontSize: 7, letterSpacing: 0.8 }}>{label}</Text><Text style={{ color: '#fff', fontSize: 14, fontWeight: '800', marginTop: 4 }}>{value}</Text><Text style={{ color: '#CBD7F1', fontSize: 8, marginTop: 1 }}>{detail}</Text>
+    <Text style={{ color: '#CBD7F1', fontSize: 10, letterSpacing: 0.8 }}>{label}</Text><Text style={{ color: '#fff', fontSize: 18, fontWeight: '800', marginTop: 4 }}>{value}</Text><Text style={{ color: '#CBD7F1', fontSize: 12, marginTop: 2 }}>{detail}</Text>
   </View>;
+}
+
+function ReminderToggle({ value, onValueChange }: { value: boolean; onValueChange: (enabled: boolean) => void }) {
+  return (
+    <Pressable
+      accessibilityRole="switch"
+      accessibilityState={{ checked: value }}
+      accessibilityLabel="Reminder setting"
+      onPress={() => onValueChange(!value)}
+      style={{ width: 44.89, height: 26.53, borderRadius: 101, borderWidth: 1, borderColor: 'transparent', padding: 2.04, alignItems: value ? 'flex-end' : 'flex-start', justifyContent: 'center', backgroundColor: value ? 'transparent' : '#53658A' }}
+    >
+      {value ? <LinearGradient colors={['#FCD7FF', '#F79CFF']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, borderRadius: 101 }} /> : null}
+      <View style={{ width: 20.4, height: 20.4, borderRadius: 10.2, backgroundColor: '#FFFFFF', shadowColor: '#000000', shadowOffset: { width: 0, height: 2.04 }, shadowOpacity: 0.35, shadowRadius: 5.1, elevation: 3, borderWidth: 1, borderColor: 'rgba(0,0,0,0.04)' }} />
+    </Pressable>
+  );
 }
 
 function formatCompact(value: number) {
@@ -365,6 +481,7 @@ const dashboardCard = { borderRadius: 20, padding: 20, shadowColor: '#243B80', s
 const editPill = { flexDirection: 'row' as const, alignItems: 'center' as const, borderRadius: 16, paddingVertical: 5, paddingHorizontal: 8, backgroundColor: 'rgba(255,255,255,0.45)' };
 const editText = { color: '#153B79', fontSize: 11, marginLeft: 3 } as const;
 const syncPill = { alignSelf: 'center' as const, flexDirection: 'row' as const, alignItems: 'center' as const, borderWidth: 1, borderColor: '#ffffff55', borderRadius: 14, paddingHorizontal: 10, paddingVertical: 5, marginTop: 8 };
-const smallControl = { width: 32, height: 32, borderRadius: 17, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: '#244E8B', borderWidth: 1, borderColor: '#ffffff25' };
-const reminderIcon = { width: 29, height: 29, borderRadius: 9, backgroundColor: 'rgba(229,210,247,0.18)', alignItems: 'center' as const, justifyContent: 'center' as const, borderWidth: 1, borderColor: 'rgba(255,255,255,0.13)' };
-const legendText = { color: '#D9E2F7', fontSize: 8 } as const;
+const smallControl = { width: 48, height: 48, borderRadius: 30, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: '#244E8B', borderWidth: 1, borderColor: '#ffffff25' };
+const goalAdjust = { width: 38, height: 38, borderRadius: 19, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: '#214F9A', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' } as const;
+const reminderIcon = { width: 36, height: 36, borderRadius: 11, backgroundColor: 'rgba(229,210,247,0.18)', alignItems: 'center' as const, justifyContent: 'center' as const, borderWidth: 1, borderColor: 'rgba(255,255,255,0.13)' };
+const legendText = { color: '#D9E2F7', fontSize: 10 } as const;

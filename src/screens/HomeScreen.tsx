@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Screen } from '../components/ui';
 import SessionCard from '../components/SessionCard';
+import VideoOverflowMenu from '../components/VideoOverflowMenu';
 import { HomeVideo } from '../api/endpoints';
 import { useContent } from '../store/ContentContext';
 import { useTheme } from '../theme/ThemeContext';
@@ -36,7 +37,7 @@ function VideoCard({ session, onPress, onFavorite, favorite }: { session: HomeVi
     <View style={{ width: 174, marginRight: 12 }}>
       <Pressable onPress={onPress} style={{ height: 112, borderRadius: 13, overflow: 'hidden', backgroundColor: theme.card }}>
         <Image source={{ uri: session.thumbnail_url ?? undefined }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-        <LinearGradient colors={['#07142B00', '#07142BB8']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.78)']} style={StyleSheet.absoluteFill} />
         <View style={{ position: 'absolute', bottom: 8, left: 9, flexDirection: 'row', alignItems: 'center' }}>
           <Ionicons name="play" size={11} color="#fff" />
           <Text style={{ color: '#fff', fontSize: 10, marginLeft: 4 }}>{Math.max(1, Math.round(session.duration / 60))} Min</Text>
@@ -45,8 +46,13 @@ function VideoCard({ session, onPress, onFavorite, favorite }: { session: HomeVi
           <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={15} color={favorite ? '#FF5C8A' : '#fff'} />
         </Pressable>
       </Pressable>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+        <Pressable onPress={onPress} style={{ flex: 1 }}>
+          <Text numberOfLines={1} style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>{session.title}</Text>
+        </Pressable>
+        <VideoOverflowMenu video={session} />
+      </View>
       <Pressable onPress={onPress}>
-        <Text numberOfLines={1} style={{ color: theme.text, fontSize: 12, fontWeight: '700', marginTop: 6 }}>{session.title}</Text>
         <Text numberOfLines={1} style={{ color: theme.subtext, fontSize: 10, marginTop: 2 }}>{session.metadata?.categories?.[0] ?? session.metadata?.age_rating}</Text>
       </Pressable>
     </View>
@@ -81,14 +87,17 @@ export default function HomeScreen({ navigation }: any) {
 
   const renderSearch = () => (
     <View style={{ flex: 1 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginTop: 8, marginBottom: 14 }}>
-        <Pressable onPress={() => { setSearchOpen(false); setQ(''); setCat('All'); setDays(0); }} hitSlop={10} style={{ padding: 6, marginRight: 7 }}>
-          <Ionicons name="chevron-back" size={23} color={theme.text} />
-        </Pressable>
-        <View style={{ flex: 1, height: 46, borderRadius: 14, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.input, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 }}>
-          <Ionicons name="search" size={18} color={theme.subtext} />
-          <TextInput value={q} onChangeText={setQ} autoFocus placeholder="Search sessions, focus areas..." placeholderTextColor={theme.subtext} style={{ flex: 1, marginHorizontal: 8, color: theme.text }} />
-          {!!q && <Pressable onPress={() => setQ('')}><Ionicons name="close-circle" size={18} color={theme.subtext} /></Pressable>}
+      <View style={{ marginHorizontal: 18, marginTop: 8, marginBottom: 14 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 50, borderRadius: 13, borderWidth: 1, borderColor: theme.dark ? theme.border : '#F6B5EC', backgroundColor: theme.dark ? theme.input : '#FCEFFC', paddingHorizontal: 16,
+          shadowColor: '#12316B', shadowOffset: { width: 0, height: 4 }, shadowOpacity: theme.dark ? 0 : 0.12, shadowRadius: 11.3, elevation: theme.dark ? 0 : 3 }}>
+          <Ionicons name="search" size={23} color={theme.dark ? theme.text : '#12316B'} />
+          <TextInput value={q} onChangeText={setQ} autoFocus placeholder="Search sessions, focus areas..." placeholderTextColor={theme.dark ? theme.subtext : '#12316B'} style={{ flex: 1, marginHorizontal: 12, color: theme.dark ? theme.text : '#12316B', fontSize: 16 }} />
+          <Pressable accessibilityRole="button" accessibilityLabel={q ? 'Clear search' : 'Close search'} onPress={() => {
+            if (q) setQ('');
+            else { setSearchOpen(false); setCat('All'); setDays(0); }
+          }} hitSlop={8}>
+            <Ionicons name="close" size={22} color={theme.dark ? theme.text : '#12316B'} />
+          </Pressable>
         </View>
       </View>
       <FlatList
@@ -101,8 +110,8 @@ export default function HomeScreen({ navigation }: any) {
         ListHeaderComponent={<View style={{ paddingHorizontal: 6 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text style={{ fontSize: 17, fontWeight: '800', color: theme.text }}>EXPLORE SESSIONS</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: theme.primary, borderRadius: 10, paddingHorizontal: 12, height: 34 }}>
-              <Ionicons name="options" size={16} color={theme.chipActiveText} /><Text style={{ color: theme.chipActiveText, fontWeight: '700', marginLeft: 6 }}>Filter</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: theme.primary, borderRadius: 47, paddingHorizontal: 12, height: 34 }}>
+              <Ionicons name="options" size={16} color={theme.chipActiveText} style={{ transform: [{ rotate: '90deg' }] }} /><Text style={{ color: theme.chipActiveText, fontWeight: '700', marginLeft: 6 }}>Filter</Text>
             </View>
           </View>
           <Text style={{ color: theme.text, fontWeight: '600', marginTop: 14, marginBottom: 8 }}>Categories</Text>
@@ -147,7 +156,7 @@ export default function HomeScreen({ navigation }: any) {
               {featured.map((session, index) => (
                 <View key={`${session.video_id}-${index}`} style={{ width: featuredWidth, height: 242, marginHorizontal: 16, borderRadius: 20, overflow: 'hidden', backgroundColor: theme.card }}>
                   <Image source={{ uri: session.thumbnail_url ?? undefined }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                  <LinearGradient colors={['#05102C1C', '#06132CF2']} locations={[0.28, 1]} style={StyleSheet.absoluteFill} />
+                  <LinearGradient colors={['rgba(0,0,0,0.08)', 'rgba(0,0,0,0.88)']} locations={[0.28, 1]} style={StyleSheet.absoluteFill} />
                   <View style={{ position: 'absolute', top: 12, left: 12, borderRadius: 12, backgroundColor: '#e6c5e5cc', paddingHorizontal: 9, paddingVertical: 5 }}>
                     <Text style={{ color: '#28164A', fontSize: 9, fontWeight: '800', letterSpacing: 0.8 }}>THIS WEEK’S PICK</Text>
                   </View>
@@ -155,7 +164,10 @@ export default function HomeScreen({ navigation }: any) {
                     <Ionicons name={isFav(session.video_id) ? 'heart' : 'heart-outline'} size={17} color={isFav(session.video_id) ? '#FF5C8A' : '#fff'} />
                   </Pressable>
                   <View style={{ position: 'absolute', left: 13, right: 13, bottom: 12 }}>
-                    <Text numberOfLines={1} style={{ color: '#fff', fontSize: 21, fontWeight: '800' }}>{session.title}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text numberOfLines={1} style={{ color: '#fff', fontSize: 21, fontWeight: '800', flex: 1 }}>{session.title}</Text>
+                      <VideoOverflowMenu video={session} />
+                    </View>
                     <Text numberOfLines={2} style={{ color: '#E2E8F7', fontSize: 11, lineHeight: 16, marginTop: 3 }}>
                       {session.description}
                     </Text>

@@ -12,8 +12,8 @@ import Svg, { ClipPath, Defs, G, LinearGradient, Path, Rect, Stop } from 'react-
 import { Text } from './Typography';
 import { useTheme } from '../theme/ThemeContext';
 
-const BODY_WIDTH = 180;
-const BODY_HEIGHT = 330;
+const BODY_WIDTH = 200;
+const BODY_HEIGHT = 365;
 const VIEWBOX_WIDTH = 150;
 const VIEWBOX_HEIGHT = 290;
 const WAVE_AMPLITUDE = 4;
@@ -246,8 +246,8 @@ const styles = StyleSheet.create({
   row: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   metric: { flex: 1, minWidth: 58 },
   metricRight: { alignItems: 'flex-end' },
-  metricValue: { fontSize: 20, lineHeight: 26, fontWeight: '800' },
-  metricCaption: { fontSize: 9, letterSpacing: 1.2 },
+  metricValue: { fontSize: 23, lineHeight: 29, fontWeight: '800' },
+  metricCaption: { fontSize: 10, letterSpacing: 1.2 },
   debugRow: { borderWidth: 2, borderColor: 'magenta' },
   debugSvg: { borderWidth: 2, borderColor: 'lime' },
 });

@@ -68,7 +68,7 @@ function useWaterIntakeState() {
   const changeIntake = useCallback((deltaMl: number) => {
     dirty.current = true;
     setCurrent(value => {
-      const next = Math.max(0, Math.min(WATER_MAX_ML, value + Math.round(deltaMl / WATER_GLASS_ML) * WATER_GLASS_ML));
+      const next = Math.max(0, Math.min(WATER_MAX_ML, value + Math.round(deltaMl)));
       void AsyncStorage.setItem(storageKey, String(next)).catch(() => {});
       void AsyncStorage.setItem(pendingKey(dateKey), '1').catch(() => {});
       return next;
@@ -116,6 +116,24 @@ function useWaterIntakeState() {
     }
   }, [current, dateKey, load]);
 
+  const saveDay = useCallback(async (day: string, waterMl: number) => {
+    const safeMl = Math.max(0, Math.min(WATER_MAX_ML, Math.round(waterMl)));
+    const result = await Api.saveWater(day, safeMl);
+    await AsyncStorage.setItem(cacheKey(day), String(result.water_ml));
+    setHistory(days => {
+      const next = days.some(item => item.day === day)
+        ? days.map(item => item.day === day ? { day, water_ml: result.water_ml } : item)
+        : [...days, { day, water_ml: result.water_ml }].sort((a, b) => a.day.localeCompare(b.day));
+      return next;
+    });
+    if (day === dateKey) {
+      dirty.current = false;
+      setCurrent(result.water_ml);
+      await AsyncStorage.removeItem(pendingKey(day));
+    }
+    return true;
+  }, [dateKey]);
+
   const week = useMemo(() => {
     const byDate = new Map(history.map(day => [day.day, day.water_ml]));
     return Array.from({ length: 7 }, (_, index) => {
@@ -140,6 +158,7 @@ function useWaterIntakeState() {
     changeIntake,
     reset,
     save,
+    saveDay,
     reload: load,
   };
 }
