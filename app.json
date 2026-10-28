@@ -13,13 +13,14 @@
       }
     },
     "android": {
-      "package": "com.amritanshu.spinefit",
-      "googleServicesFile": "./google-services.json",
-      "permissions": [
-        "POST_NOTIFICATIONS",
-        "ACTIVITY_RECOGNITION"
-      ]
-    },
+        "package": "com.amritanshu.spinefit",
+        "versionCode": 2,
+        "googleServicesFile": "./google-services.json",
+        "permissions": [
+          "POST_NOTIFICATIONS",
+          "ACTIVITY_RECOGNITION"
+        ]
+      },
     "plugins": [
       "expo-secure-store",
       "expo-video",
@@ -31,7 +32,15 @@
       ],
       "expo-asset",
       "expo-font",
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "SpineFit reads your daily step count from Apple Health to sync your activity.",
+          "NSHealthUpdateUsageDescription": false,
+          "background": false
+        }
+      ]
     ],
     "extra": {
       "eas": {

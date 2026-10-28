@@ -1,9 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, AppState, Platform, Pressable, ScrollView, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Circle, Svg, SvgXml } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Pedometer } from 'expo-sensors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { Text } from '../components/Typography';
@@ -14,6 +13,9 @@ import { WaterBody } from '../components/WaterBody';
 import { WaterMugIcon } from '../components/WaterMugIcon';
 import { useWaterIntake } from '../store/useWaterIntake';
 import { expandIconXml } from '../assets/expandIconXml';
+import { Api } from '../api/endpoints';
+import type { ApiError } from '../api/client';
+import { getStepCountForDay, isStepSourceAvailable } from '../services/stepSource';
 
 const STEP_GOAL = 8000;
 const WATER_SETTINGS_KEY = 'water-intake-settings';
@@ -47,6 +49,8 @@ export default function TrackerScreen() {
   const navigation = useNavigation<any>();
   const [view, setView] = useState<TrackerView>('dashboard');
   const [steps, setSteps] = useState(0);
+  const [stepError, setStepError] = useState<string | null>(null);
+  const syncingSteps = useRef(false);
   const { current: todayWater, changeIntake, week: savedWaterWeek, save: saveWater, saveDay: saveWaterDay, saving: savingWater, dirty: waterDirty, error: waterError, reload: reloadWater } = useWaterIntake();
   const [glassSize, setGlassSize] = useState(300);
   const [dailyGoalMl, setDailyGoalMl] = useState(3000);
@@ -58,7 +62,7 @@ export default function TrackerScreen() {
   const [savingWaterHistory, setSavingWaterHistory] = useState(false);
   const [stepWeek, setStepWeek] = useState<DayValue[]>([]);
   const [reminderEnabled, setReminderEnabled] = useState<Record<string, boolean>>({ steps: true, water: false, exercise: true });
-  const today = useMemo(() => new Date(), []);
+  const [today, setToday] = useState(() => new Date());
   const todayKey = dateKey(today);
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => { void reloadWater(); });
@@ -82,18 +86,70 @@ export default function TrackerScreen() {
   const waterPercent = Math.min(100, Math.round((todayWater / dailyGoalMl) * 100));
   const weekLabel = `${weekDates(today)[0].toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
 
-  const syncSteps = useCallback(async () => {
+  const loadStepWeek = useCallback(async () => {
     try {
-      if (!(await Pedometer.isAvailableAsync())) return;
-      const start = new Date();
-      start.setHours(0, 0, 0, 0);
-      const result = await Pedometer.getStepCountAsync(start, new Date());
-      setSteps(result.steps);
-      setStepWeek(current => current.map(day => dateKey(day.date) === todayKey ? { ...day, value: result.steps } : day));
-    } catch {
-      // Keep the last value when the sensor is unavailable or permission is denied.
+      const [todayResult, history] = await Promise.all([Api.steps(todayKey), Api.stepsHistory(todayKey)]);
+      setSteps(todayResult.steps);
+      const totals = new Map<string, number>(history.days.map(day => [day.day, day.steps] as const));
+      const values = weekDates(today).map(date => ({
+        date,
+        label: dayLabel(date),
+        value: dateKey(date) === todayKey ? todayResult.steps : totals.get(dateKey(date)) ?? 0,
+      }));
+      setStepWeek(values);
+      setStepError(null);
+    } catch (cause: any) {
+      const error = cause as ApiError;
+      setStepError(error.detail ?? 'Could not load your steps from the server.');
     }
-  }, [todayKey]);
+  }, [today, todayKey]);
+
+  const syncSteps = useCallback(async () => {
+    if (syncingSteps.current) return;
+    syncingSteps.current = true;
+    try {
+      if (!(await isStepSourceAvailable())) {
+        await loadStepWeek();
+        setStepError(Platform.OS === 'ios'
+          ? 'Apple Health is not available on this iPhone.'
+          : 'Step counting is not available on this device.');
+        return;
+      }
+      const todayDate = new Date();
+      const todayString = dateKey(todayDate);
+      let syncFailure = '';
+      for (let back = 6; back >= 0; back -= 1) {
+        const day = new Date(todayDate);
+        day.setHours(0, 0, 0, 0);
+        day.setDate(day.getDate() - back);
+        const start = new Date(day);
+        const end = new Date(day);
+        end.setDate(end.getDate() + 1);
+        if (back === 0) end.setTime(Date.now());
+        try {
+          const total = Math.max(0, Math.min(100000, await getStepCountForDay(start, end)));
+          try {
+            await Api.saveSteps(dateKey(day), total, todayString);
+          } catch (cause: any) {
+            if (cause?.code !== 'profile_missing') throw cause;
+            await Api.me();
+            await Api.saveSteps(dateKey(day), total, todayString);
+          }
+        } catch (cause: any) {
+          const error = cause as ApiError;
+          syncFailure = cause?.message ?? error.detail ?? 'Could not sync your step history.';
+        }
+      }
+      await loadStepWeek();
+      if (syncFailure) setStepError(syncFailure);
+    } catch (cause: any) {
+      const error = cause as ApiError;
+      setStepError(cause?.message ?? error.detail ?? 'Could not sync steps. Check your connection and try again.');
+      await loadStepWeek();
+    } finally {
+      syncingSteps.current = false;
+    }
+  }, [loadStepWeek]);
 
   const waterWeek: DayValue[] = savedWaterWeek.map(({ day, water_ml }) => {
     const [year, month, date] = day.split('-').map(Number);
@@ -110,37 +166,20 @@ export default function TrackerScreen() {
     return { key, title: offset === 0 ? 'Today' : offset === 1 ? 'Yesterday' : dayLabel(date).toUpperCase(), savedMl, savedGlasses: Math.round(savedMl / glassSize) };
   });
 
-  const loadStepWeek = useCallback(async () => {
-    try {
-      const available = await Pedometer.isAvailableAsync();
-      const dates = weekDates(today);
-      const values = await Promise.all(dates.map(async date => {
-        if (!available) return { date, label: dayLabel(date), value: 0 };
-        const start = new Date(date);
-        const end = new Date(date);
-        end.setDate(end.getDate() + 1);
-        if (dateKey(date) === todayKey) end.setTime(Date.now());
-        if (end <= start) return { date, label: dayLabel(date), value: 0 };
-        try {
-          const result = await Pedometer.getStepCountAsync(start, end);
-          return { date, label: dayLabel(date), value: result.steps };
-        } catch {
-          return { date, label: dayLabel(date), value: 0 };
-        }
-      }));
-      setStepWeek(values);
-    } catch {
-      setStepWeek(weekDates(today).map(date => ({ date, label: dayLabel(date), value: 0 })));
-    }
-  }, [today, todayKey]);
-
   useEffect(() => {
     AsyncStorage.getItem('reminders').then(saved => {
       if (saved) setReminderEnabled({ steps: true, water: false, exercise: true, ...JSON.parse(saved) });
     }).catch(() => {});
     void syncSteps();
-    void loadStepWeek();
-  }, [todayKey, syncSteps, loadStepWeek]);
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') {
+        const now = new Date();
+        setToday(current => dateKey(current) === dateKey(now) ? current : now);
+        void syncSteps();
+      }
+    });
+    return () => subscription.remove();
+  }, [syncSteps]);
 
   const addWater = (amount: number) => {
     changeIntake(amount * glassSize);
@@ -331,6 +370,7 @@ export default function TrackerScreen() {
   const renderSteps = () => (
     <>
       <DetailHeader title="Steps" onBack={() => setView('dashboard')} />
+      {stepError ? <Pressable onPress={() => void syncSteps()} style={{ flexDirection: 'row', alignItems: 'center', padding: 11, marginTop: 8, marginHorizontal: 2, marginBottom: 4, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.75)' }}><Ionicons name="alert-circle-outline" size={17} color="#A33C54" /><Text style={{ flex: 1, color: '#762A43', fontSize: 11, marginLeft: 7 }}>{stepError} Tap to retry.</Text></Pressable> : null}
       <View style={{ alignItems: 'center', paddingTop: 22, paddingBottom: 21 }}>
         {progressRing(stepPercent, 140, '#E5B900', <View style={{ alignItems: 'center' }}><Ionicons name="walk" size={25} color={navy} /><Text style={{ color: navy, fontSize: 19.33, fontWeight: '800', marginTop: 2 }}>{stepPercent}%</Text><Text style={{ color: '#62739B', fontSize: 12.24 }}>of goal</Text></View>)}
         <Text style={{ color: '#344F85', fontSize: 32, fontWeight: '700', marginTop: 17 }}>{steps.toLocaleString()}</Text>

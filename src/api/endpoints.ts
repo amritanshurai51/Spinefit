@@ -19,6 +19,19 @@ export type PlayInfo = HomeVideo & { hls_url: string; embed_url?: string; expire
 
 export type WaterDay = { day: string; water_ml: number };
 export type WaterHistory = { from: string; to: string; days: WaterDay[] };
+export type WellnessTipFile = {
+  tip_id: string;
+  title: string;
+  file_name: string;
+  file_size: number;
+  page_count: number;
+  thumbnail_url: string;
+  pdf_url: string;
+  created_at: string;
+};
+export type WellnessTipsResponse = { tips: WellnessTipFile[]; links_expire_at: number };
+export type StepsDay = { day: string; steps: number };
+export type StepsHistory = { first_day: string | null; from: string | null; to: string | null; days: StepsDay[] };
 
 /** YYYY-MM-DD in the phone's local timezone (the water API requires local dates). */
 export function localDateString(date = new Date()) {
@@ -32,6 +45,14 @@ export const Api = {
   deleteMe: () => api('DELETE', '/auth/me'),
   home: () => api<HomeFeed>('GET', '/videos/home'),
   video: (id: string) => api<PlayInfo>('GET', `/videos/${id}`),
+  wellnessTips: () => api<WellnessTipsResponse>('GET', '/wellness-tips'),
+  steps: (today = localDateString(), day?: string) => api<StepsDay>('GET', `/steps?today=${today}${day ? `&day=${day}` : ''}`),
+  stepsHistory: (today = localDateString(), from?: string, to?: string) => {
+    const range = `${from ? `&from=${from}` : ''}${to ? `&to=${to}` : ''}`;
+    return api<StepsHistory>('GET', `/steps/history?today=${today}${range}`);
+  },
+  saveSteps: (day: string, steps: number, today = localDateString()) =>
+    api<StepsDay & { message?: string }>('POST', `/steps?today=${today}`, { day, steps }),
   favourites: () => api<string[]>('GET', '/favourites'),
   addFav: (video_id: string) => api('POST', '/favourites', { video_id }),
   removeFav: (id: string) => api('DELETE', `/favourites/${id}`),
@@ -40,7 +61,7 @@ export const Api = {
     api<WaterDay & { message: string }>('POST', `/water-intake?today=${today}`, { day, water_ml }),
 };
 
-// The backend has no tips or plan endpoints, so these remain local app data.
+// Plans remain local app data until their backend endpoint is available.
 export type Tip = { id: string; title: string; summary: string; image: string; readMin: number; tag: string; ago: string };
 export type Plan = { id: string; name: string; price: string; period: string; features: string[] };
 
