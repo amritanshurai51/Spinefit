@@ -44,15 +44,14 @@
       ],
       "expo-health-connect",
       [
-        "expo-build-properties",
-        {
-          "android": {
-            "compileSdkVersion": 35,
-            "targetSdkVersion": 35,
-            "minSdkVersion": 26
-          }
+      "expo-build-properties",
+      {
+        "android": {
+          "compileSdkVersion": 36,
+          "minSdkVersion": 26
         }
-      ]
+      }
+    ]
     ],
     "extra": {
       "eas": {
