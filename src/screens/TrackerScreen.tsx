@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, AppState, Platform, Pressable, ScrollView, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useAndroidSteps } from '../hooks/useAndroidSteps';
 import { Circle, Svg, SvgXml } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -51,6 +52,7 @@ export default function TrackerScreen() {
   const [steps, setSteps] = useState(0);
   const [stepError, setStepError] = useState<string | null>(null);
   const syncingSteps = useRef(false);
+  const androidSteps = useAndroidSteps(7);
   const { current: todayWater, changeIntake, week: savedWaterWeek, save: saveWater, saveDay: saveWaterDay, saving: savingWater, dirty: waterDirty, error: waterError, reload: reloadWater } = useWaterIntake();
   const [glassSize, setGlassSize] = useState(300);
   const [dailyGoalMl, setDailyGoalMl] = useState(3000);
@@ -82,7 +84,15 @@ export default function TrackerScreen() {
   }, []);
   const glasses = Math.round(todayWater / glassSize);
   const goalGlasses = Math.ceil(dailyGoalMl / glassSize);
-  const stepPercent = Math.min(100, Math.round((steps / STEP_GOAL) * 100));
+  const displayedSteps = Platform.OS === 'android' && androidSteps.week.length > 0 ? androidSteps.today : steps;
+  const displayedStepWeek: DayValue[] = Platform.OS === 'android' && androidSteps.week.length > 0
+    ? weekDates(today).map(date => ({
+      date,
+      label: dayLabel(date),
+      value: androidSteps.week.find(day => day.day === dateKey(date))?.steps ?? 0,
+    }))
+    : stepWeek;
+  const stepPercent = Math.min(100, Math.round((displayedSteps / STEP_GOAL) * 100));
   const waterPercent = Math.min(100, Math.round((todayWater / dailyGoalMl) * 100));
   const weekLabel = `${weekDates(today)[0].toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
 
@@ -108,6 +118,38 @@ export default function TrackerScreen() {
     if (syncingSteps.current) return;
     syncingSteps.current = true;
     try {
+      if (Platform.OS === 'android') {
+        const healthWeek = await androidSteps.sync();
+        const healthTotals = new Map(healthWeek.map(day => [day.day, day.steps] as const));
+        const todayTotal = healthTotals.get(dateKey(new Date())) ?? 0;
+        setSteps(todayTotal);
+        setStepWeek(weekDates(new Date()).map(date => ({
+          date,
+          label: dayLabel(date),
+          value: healthTotals.get(dateKey(date)) ?? 0,
+        })));
+
+        const syncDate = dateKey(new Date());
+        let backendFailure = '';
+        for (const day of healthWeek) {
+          try {
+            await Api.saveSteps(day.day, day.steps, syncDate);
+          } catch (cause: any) {
+            try {
+              if (cause?.code !== 'profile_missing') throw cause;
+              await Api.me();
+              await Api.saveSteps(day.day, day.steps, syncDate);
+            } catch (retryCause: any) {
+              const error = retryCause as ApiError;
+              backendFailure = retryCause?.message ?? error.detail ?? 'Could not sync your step history.';
+            }
+          }
+        }
+        await loadStepWeek();
+        if (backendFailure) setStepError(backendFailure);
+        return;
+      }
+
       if (!(await isStepSourceAvailable())) {
         await loadStepWeek();
         setStepError(Platform.OS === 'ios'
@@ -149,7 +191,7 @@ export default function TrackerScreen() {
     } finally {
       syncingSteps.current = false;
     }
-  }, [loadStepWeek]);
+  }, [androidSteps.sync, loadStepWeek]);
 
   const waterWeek: DayValue[] = savedWaterWeek.map(({ day, water_ml }) => {
     const [year, month, date] = day.split('-').map(Number);
@@ -319,8 +361,8 @@ export default function TrackerScreen() {
           {progressRing(stepPercent, 110, '#F3D486', <View style={{ alignItems: 'center' }}><Ionicons name="walk" size={25} color="#fff" /><Text style={{ color: '#fff', fontSize: 15.3, fontWeight: '800', marginTop: 1 }}>{stepPercent}%</Text><Text style={{ color: '#D6E0F6', fontSize: 9.69 }}>of goal</Text></View>)}
           <View style={{ marginLeft: 15, flex: 1 }}>
             <Text style={{ color: mutedOnPanel, fontSize: 12.24 }}>Steps today</Text>
-            <Text style={{ color: '#fff', fontSize: 20, fontWeight: '800', marginVertical: 1 }}>{steps.toLocaleString()}</Text>
-            <Text style={{ color: '#D3DDF2', fontSize: 12.24 }}>{Math.max(0, STEP_GOAL - steps).toLocaleString()} to go</Text>
+            <Text style={{ color: '#fff', fontSize: 20, fontWeight: '800', marginVertical: 1 }}>{displayedSteps.toLocaleString()}</Text>
+            <Text style={{ color: '#D3DDF2', fontSize: 12.24 }}>{Math.max(0, STEP_GOAL - displayedSteps).toLocaleString()} to go</Text>
           </View>
         </Pressable>
         <Pressable onPress={() => void syncSteps()} style={syncPill}><Ionicons name="sync-outline" size={13} color="#fff" /><Text style={{ color: '#fff', fontSize: 11.73, marginLeft: 4 }}>Sync now</Text></Pressable>
@@ -373,23 +415,27 @@ export default function TrackerScreen() {
       {stepError ? <Pressable onPress={() => void syncSteps()} style={{ flexDirection: 'row', alignItems: 'center', padding: 11, marginTop: 8, marginHorizontal: 2, marginBottom: 4, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.75)' }}><Ionicons name="alert-circle-outline" size={17} color="#A33C54" /><Text style={{ flex: 1, color: '#762A43', fontSize: 11, marginLeft: 7 }}>{stepError} Tap to retry.</Text></Pressable> : null}
       <View style={{ alignItems: 'center', paddingTop: 22, paddingBottom: 21 }}>
         {progressRing(stepPercent, 140, '#E5B900', <View style={{ alignItems: 'center' }}><Ionicons name="walk" size={25} color={navy} /><Text style={{ color: navy, fontSize: 19.33, fontWeight: '800', marginTop: 2 }}>{stepPercent}%</Text><Text style={{ color: '#62739B', fontSize: 12.24 }}>of goal</Text></View>)}
-        <Text style={{ color: '#344F85', fontSize: 32, fontWeight: '700', marginTop: 17 }}>{steps.toLocaleString()}</Text>
-        <Text style={{ color: '#536A99', fontSize: 18 }}>{Math.max(0, STEP_GOAL - steps).toLocaleString()} to go</Text>
+        <Text style={{ color: '#344F85', fontSize: 32, fontWeight: '700', marginTop: 17 }}>{displayedSteps.toLocaleString()}</Text>
+        <Text style={{ color: '#536A99', fontSize: 18 }}>{Math.max(0, STEP_GOAL - displayedSteps).toLocaleString()} to go</Text>
         <Pressable onPress={() => void syncSteps()} style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.8)', paddingVertical: 9, paddingHorizontal: 15, marginTop: 11 }}><Ionicons name="sync-outline" size={14} color={navy} /><Text style={{ color: navy, fontSize: 11.73, marginLeft: 5 }}>Sync now</Text></Pressable>
-        <Text style={{ color: theme.subtext, fontSize: 14, marginTop: 12 }}>Last synced at {new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</Text>
+        <Text style={{ color: theme.subtext, fontSize: 14, marginTop: 12 }}>
+          {Platform.OS === 'android' && androidSteps.lastSynced
+            ? `Last synced at ${androidSteps.lastSynced.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+            : Platform.OS === 'android' ? 'Not synced yet' : `Last synced at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`}
+        </Text>
       </View>
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 2, marginBottom: 21 }}>
-        <StatCard icon="walk" value={`${(steps * 0.00071).toFixed(1)}`} unit="km" colors={panel} />
-        <StatCard icon="flame" value={`${Math.round(steps * 0.038)}`} unit="kcal" colors={panel} />
-        <StatCard icon="stopwatch-outline" value={`${Math.round(steps / 125)}`} unit="Active min" colors={panel} />
+        <StatCard icon="walk" value={`${(displayedSteps * 0.00071).toFixed(1)}`} unit="km" colors={panel} />
+        <StatCard icon="flame" value={`${Math.round(displayedSteps * 0.038)}`} unit="kcal" colors={panel} />
+        <StatCard icon="stopwatch-outline" value={`${Math.round(displayedSteps / 125)}`} unit="Active min" colors={panel} />
       </View>
       <LinearGradient colors={panel} style={{ borderRadius: 21, padding: 18, marginBottom: 18 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View><Text style={{ color: '#fff', fontSize: 16, fontWeight: '800' }}>Daily Steps</Text><Text style={{ color: mutedOnPanel, fontSize: 11, marginTop: 3 }}>Average {Math.round(stepWeek.reduce((sum, day) => sum + day.value, 0) / Math.max(1, stepWeek.length)).toLocaleString()} steps a day</Text></View>
+          <View><Text style={{ color: '#fff', fontSize: 16, fontWeight: '800' }}>Daily Steps</Text><Text style={{ color: mutedOnPanel, fontSize: 11, marginTop: 3 }}>Average {Math.round(displayedStepWeek.reduce((sum, day) => sum + day.value, 0) / Math.max(1, displayedStepWeek.length)).toLocaleString()} steps a day</Text></View>
           <View style={{ borderWidth: 1, borderColor: '#ffffff55', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 7, flexDirection: 'row', alignItems: 'center' }}><Ionicons name="options-outline" size={15} color="#fff" /><Text style={{ color: '#fff', fontSize: 11, marginLeft: 5 }}>7 Days</Text></View>
         </View>
         <View style={{ marginTop: 10, borderTopWidth: 1, borderStyle: 'dashed', borderColor: '#ffffff44' }} />
-        {stepChart(stepWeek)}
+        {stepChart(displayedStepWeek)}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}><Text style={legendText}><Text style={{ color: '#F2B6F1' }}>■</Text> Goal progress</Text><Text style={legendText}><Text style={{ color: '#F2D486' }}>■</Text> Today</Text><Text style={legendText}>Goal 8,000</Text></View>
       </LinearGradient>
     </>
