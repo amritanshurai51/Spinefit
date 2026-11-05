@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, Switch, View } from 'react-native';
+import { Alert, Linking, Modal, Pressable, ScrollView, Switch, View } from 'react-native';
 import { Text, TextInput } from '../components/Typography';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,6 +29,9 @@ const NAVY_LIGHT = '#193C79';
 const WHITE = '#FFFFFF';
 const PALE = '#C7D8F6';
 const PINK = '#F2A2F1';
+const PRIVACY_POLICY_URL = 'https://sites.google.com/view/fineurspine-privacy-policy/home';
+const TERMS_OF_SERVICE_URL = 'https://sites.google.com/view/fineurspine-terms-of-service/home';
+const ACCOUNT_DELETION_URL = 'https://sites.google.com/view/fineurspine-user-data-deletion/home';
 
 function IconBox({ name }: { name: React.ComponentProps<typeof Ionicons>['name'] }) {
   return (
@@ -132,6 +135,13 @@ export default function ProfileScreen({ navigation }: any) {
     <Text style={{ color: theme.dark ? WHITE : '#211C36', fontSize: 14, fontWeight: '800', marginTop: 18, marginBottom: 8 }}>{title}</Text>
   );
   const unavailable = (feature: string) => Alert.alert(feature, `${feature} will be available when your SpineFit account services are connected.`);
+  const openExternalLink = async (url: string, title: string) => {
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert('Unable to open link', `Please try opening the ${title} link again.`);
+    }
+  };
 
   const saveProfileName = async () => {
     const trimmed = nameDraft.trim();
@@ -265,9 +275,11 @@ export default function ProfileScreen({ navigation }: any) {
 
         {sectionTitle('Legal')}
         <View style={{ backgroundColor: NAVY_LIGHT, borderRadius: 17, paddingVertical: 2 }}>
-          {row('shield-checkmark-outline', 'Privacy policy', 'How SpineFit protects your data', () => unavailable('Privacy policy'))}
+          {row('shield-checkmark-outline', 'Privacy policy', 'How SpineFit protects your data', () => { void openExternalLink(PRIVACY_POLICY_URL, 'Privacy policy'); })}
           <View style={{ height: 1, backgroundColor: '#FFFFFF18', marginHorizontal: 12 }} />
-          {row('document-text-outline', 'Terms of service', 'Review your terms', () => unavailable('Terms of service'))}
+          {row('document-text-outline', 'Terms of service', 'Review your terms', () => { void openExternalLink(TERMS_OF_SERVICE_URL, 'Terms of service'); })}
+          <View style={{ height: 1, backgroundColor: '#FFFFFF18', marginHorizontal: 12 }} />
+          {row('trash-outline', 'Account deletion instructions', 'Review how to delete your account and data', () => { void openExternalLink(ACCOUNT_DELETION_URL, 'account deletion instructions'); })}
         </View>
 
         <Pressable onPress={() => { setDeleteError(''); setDeletePassword(''); setDeleteModalVisible(true); }} style={{ alignSelf: 'center', paddingVertical: 14 }}>
