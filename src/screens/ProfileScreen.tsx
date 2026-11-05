@@ -282,10 +282,6 @@ export default function ProfileScreen({ navigation }: any) {
           {row('trash-outline', 'Account deletion instructions', 'Review how to delete your account and data', () => { void openExternalLink(ACCOUNT_DELETION_URL, 'account deletion instructions'); })}
         </View>
 
-        <Pressable onPress={() => { setDeleteError(''); setDeletePassword(''); setDeleteModalVisible(true); }} style={{ alignSelf: 'center', paddingVertical: 14 }}>
-          <Text style={{ color: '#FFB7C3', fontSize: 12, fontWeight: '700' }}>Delete my account</Text>
-        </Pressable>
-
         <Pressable onPress={logout} style={{ minHeight: 52, marginTop: 16, borderRadius: 17, backgroundColor: NAVY, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, elevation: 4 }}>
           <Ionicons name="log-out-outline" size={17} color={PINK} />
           <Text style={{ color: PINK, fontWeight: '800', fontSize: 14 }}>Log out</Text>
