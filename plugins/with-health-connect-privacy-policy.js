@@ -16,19 +16,21 @@ function withHealthConnectPrivacyPolicy(config, { privacyPolicyUrl }) {
     }
 
     if (!source.includes('openHealthConnectPrivacyPolicyIfRequested')) {
-      const onCreateCall = '    super.onCreate(null)';
-      if (!source.includes(onCreateCall)) {
-        throw new Error('Could not add Health Connect privacy policy handling: MainActivity onCreate block was not found.');
+      // Generated template comments vary across Expo SDK releases. Match the
+      // stable Kotlin onCreate call and activity method signature instead.
+      const onCreateCall = /(\s*super\.onCreate\([^\n]*\);?)/;
+      if (!onCreateCall.test(source)) {
+        throw new Error('Could not add Health Connect privacy policy handling: MainActivity onCreate call was not found.');
       }
-      source = source.replace(onCreateCall, `${onCreateCall}\n    if (openHealthConnectPrivacyPolicyIfRequested(intent)) {\n      finish()\n      return\n    }`);
+      source = source.replace(onCreateCall, '$1\n    if (openHealthConnectPrivacyPolicyIfRequested(intent)) {\n      finish()\n      return\n    }');
 
-      const activityAnchor = '  /**\n   * Returns the name of the main component registered from the JavaScript.';
-      if (!source.includes(activityAnchor)) {
-        throw new Error('Could not add Health Connect privacy policy handling: MainActivity insertion point was not found.');
+      const activityAnchor = /(\n\s*override fun getMainComponentName\s*\()/;
+      if (!activityAnchor.test(source)) {
+        throw new Error('Could not add Health Connect privacy policy handling: MainActivity lifecycle insertion point was not found.');
       }
       const actionCheck = HEALTH_CONNECT_ACTIONS.map(action => `action == "${action}"`).join(' || ');
-      const helper = `  private fun openHealthConnectPrivacyPolicyIfRequested(launchIntent: Intent?): Boolean {\n    val action = launchIntent?.action\n    if (!(${actionCheck})) return false\n    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(${JSON.stringify(privacyPolicyUrl)})))\n    return true\n  }\n\n  override fun onNewIntent(intent: Intent) {\n    super.onNewIntent(intent)\n    setIntent(intent)\n    if (openHealthConnectPrivacyPolicyIfRequested(intent)) finish()\n  }\n\n`;
-      source = source.replace(activityAnchor, `${helper}${activityAnchor}`);
+      const helper = `\n  private fun openHealthConnectPrivacyPolicyIfRequested(launchIntent: Intent?): Boolean {\n    val action = launchIntent?.action\n    if (!(${actionCheck})) return false\n    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(${JSON.stringify(privacyPolicyUrl)})))\n    return true\n  }\n\n  override fun onNewIntent(intent: Intent) {\n    super.onNewIntent(intent)\n    setIntent(intent)\n    if (openHealthConnectPrivacyPolicyIfRequested(intent)) finish()\n  }\n`;
+      source = source.replace(activityAnchor, `${helper}$1`);
     }
 
     config.modResults.contents = source;
