@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, AppState, Platform, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Linking, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAndroidSteps } from '../hooks/useAndroidSteps';
 import { Circle, Svg, SvgXml } from 'react-native-svg';
@@ -17,6 +17,7 @@ import { expandIconXml } from '../assets/expandIconXml';
 import { Api } from '../api/endpoints';
 import type { ApiError } from '../api/client';
 import { getStepCountForDay, isStepSourceAvailable } from '../services/stepSource';
+import { PRIVACY_POLICY_URL } from '../config';
 
 const STEP_GOAL = 8000;
 const WATER_SETTINGS_KEY = 'water-intake-settings';
@@ -51,6 +52,8 @@ export default function TrackerScreen() {
   const [view, setView] = useState<TrackerView>('dashboard');
   const [steps, setSteps] = useState(0);
   const [stepError, setStepError] = useState<string | null>(null);
+  const [connectStepsModalVisible, setConnectStepsModalVisible] = useState(false);
+  const [connectingSteps, setConnectingSteps] = useState(false);
   const syncingSteps = useRef(false);
   const androidSteps = useAndroidSteps(7);
   const { current: todayWater, changeIntake, week: savedWaterWeek, save: saveWater, saveDay: saveWaterDay, saving: savingWater, dirty: waterDirty, error: waterError, reload: reloadWater } = useWaterIntake();
@@ -93,6 +96,7 @@ export default function TrackerScreen() {
     }))
     : stepWeek;
   const stepPercent = Math.min(100, Math.round((displayedSteps / STEP_GOAL) * 100));
+  const androidStepsConnected = Platform.OS !== 'android' || androidSteps.hasPermission;
   const waterPercent = Math.min(100, Math.round((todayWater / dailyGoalMl) * 100));
   const weekLabel = `${weekDates(today)[0].toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
 
@@ -193,6 +197,56 @@ export default function TrackerScreen() {
     }
   }, [androidSteps.sync, loadStepWeek]);
 
+  const openSteps = async () => {
+    const hasAndroidPermission = Platform.OS !== 'android'
+      || (androidSteps.permissionChecked ? androidSteps.hasPermission : await androidSteps.checkPermission());
+    if (!hasAndroidPermission) {
+      setConnectStepsModalVisible(true);
+      return;
+    }
+    setView('steps');
+  };
+
+  const showConnectSteps = async () => {
+    const hasAndroidPermission = Platform.OS !== 'android'
+      || (androidSteps.permissionChecked ? androidSteps.hasPermission : await androidSteps.checkPermission());
+    if (hasAndroidPermission) {
+      if (Platform.OS === 'android') {
+        setView('steps');
+        void syncSteps();
+      }
+      else setView('steps');
+      return;
+    }
+    setConnectStepsModalVisible(true);
+  };
+
+  const connectSteps = async () => {
+    setConnectingSteps(true);
+    setStepError(null);
+    setConnectStepsModalVisible(false);
+    try {
+      const granted = await androidSteps.requestStepsPermission();
+      if (!granted) {
+        setStepError('Steps permission was not granted. You can connect later from Tracker.');
+        return;
+      }
+      await syncSteps();
+    } catch (cause: any) {
+      setStepError(cause?.message ?? 'Could not connect to Health Connect. You can try again later.');
+    } finally {
+      setConnectingSteps(false);
+    }
+  };
+
+  const retrySteps = () => {
+    if (Platform.OS === 'android' && !androidSteps.hasPermission) {
+      void showConnectSteps();
+    } else {
+      void syncSteps();
+    }
+  };
+
   const waterWeek: DayValue[] = savedWaterWeek.map(({ day, water_ml }) => {
     const [year, month, date] = day.split('-').map(Number);
     const localDay = new Date(year, month - 1, date);
@@ -212,16 +266,28 @@ export default function TrackerScreen() {
     AsyncStorage.getItem('reminders').then(saved => {
       if (saved) setReminderEnabled({ steps: true, water: false, exercise: true, ...JSON.parse(saved) });
     }).catch(() => {});
-    void syncSteps();
+    if (Platform.OS === 'android') {
+      void androidSteps.checkPermission().then(hasPermission => {
+        if (hasPermission) void syncSteps();
+      });
+    } else {
+      void syncSteps();
+    }
     const subscription = AppState.addEventListener('change', state => {
       if (state === 'active') {
         const now = new Date();
         setToday(current => dateKey(current) === dateKey(now) ? current : now);
-        void syncSteps();
+        if (Platform.OS === 'android') {
+          void androidSteps.checkPermission().then(hasPermission => {
+            if (hasPermission) void syncSteps();
+          });
+        } else {
+          void syncSteps();
+        }
       }
     });
     return () => subscription.remove();
-  }, [syncSteps]);
+  }, [androidSteps.checkPermission, syncSteps]);
 
   const addWater = (amount: number) => {
     changeIntake(amount * glassSize);
@@ -352,20 +418,40 @@ export default function TrackerScreen() {
       </View>
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, marginBottom: 7 }}>
-        <Pressable onPress={() => setView('steps')}><Text style={{ color: theme.text, fontSize: 17, fontWeight: '800' }}>Steps</Text></Pressable>
+        <Pressable onPress={openSteps}><Text style={{ color: theme.text, fontSize: 17, fontWeight: '800' }}>Steps</Text></Pressable>
         {/* <Pressable onPress={() => setView('steps')} style={editPill}><Ionicons name="create-outline" size={18} color={navy} /><Text style={editText}>Edit</Text></Pressable> */}
       </View>
       <LinearGradient colors={panel} style={dashboardCard}>
-        <Pressable onPress={() => setView('steps')} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flex: 1, paddingRight: 25, position: 'relative' }}>
-          <SvgXml xml={expandIconXml} width={25} height={25} style={{ position: 'absolute', top: 0, right: 0 }} />
-          {progressRing(stepPercent, 110, '#F3D486', <View style={{ alignItems: 'center' }}><Ionicons name="walk" size={25} color="#fff" /><Text style={{ color: '#fff', fontSize: 15.3, fontWeight: '800', marginTop: 1 }}>{stepPercent}%</Text><Text style={{ color: '#D6E0F6', fontSize: 9.69 }}>of goal</Text></View>)}
-          <View style={{ marginLeft: 15, flex: 1 }}>
-            <Text style={{ color: mutedOnPanel, fontSize: 12.24 }}>Steps today</Text>
-            <Text style={{ color: '#fff', fontSize: 20, fontWeight: '800', marginVertical: 1 }}>{displayedSteps.toLocaleString()}</Text>
-            <Text style={{ color: '#D3DDF2', fontSize: 12.24 }}>{Math.max(0, STEP_GOAL - displayedSteps).toLocaleString()} to go</Text>
-          </View>
-        </Pressable>
-        <Pressable onPress={() => void syncSteps()} style={syncPill}><Ionicons name="sync-outline" size={13} color="#fff" /><Text style={{ color: '#fff', fontSize: 11.73, marginLeft: 4 }}>Sync now</Text></Pressable>
+        {!androidStepsConnected ? (
+          <Pressable onPress={() => void showConnectSteps()} accessibilityRole="button" style={{ minHeight: 112, flexDirection: 'row', alignItems: 'center', paddingRight: 25, position: 'relative' }}>
+            <SvgXml xml={expandIconXml} width={25} height={25} style={{ position: 'absolute', top: 0, right: 0 }} />
+            <View style={{ width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: '#ffffff55' }}>
+              <Ionicons name="walk" size={27} color="#fff" />
+            </View>
+            <View style={{ flex: 1, marginLeft: 15 }}>
+              <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800' }}>Connect Steps</Text>
+              <Text style={{ color: '#D3DDF2', fontSize: 12, marginTop: 4 }}>Connect to Health Connect to view your activity</Text>
+              {stepError ? <Text style={{ color: '#FFD5DB', fontSize: 11, marginTop: 5 }}>{stepError}</Text> : null}
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#fff" />
+          </Pressable>
+        ) : (
+          <>
+            <Pressable onPress={openSteps} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flex: 1, paddingRight: 25, position: 'relative' }}>
+              <SvgXml xml={expandIconXml} width={25} height={25} style={{ position: 'absolute', top: 0, right: 0 }} />
+              {progressRing(stepPercent, 110, '#F3D486', <View style={{ alignItems: 'center' }}><Ionicons name="walk" size={25} color="#fff" /><Text style={{ color: '#fff', fontSize: 15.3, fontWeight: '800', marginTop: 1 }}>{stepPercent}%</Text><Text style={{ color: '#D6E0F6', fontSize: 9.69 }}>of goal</Text></View>)}
+              <View style={{ marginLeft: 15, flex: 1 }}>
+                <Text style={{ color: mutedOnPanel, fontSize: 12.24 }}>Steps today</Text>
+                <Text style={{ color: '#fff', fontSize: 20, fontWeight: '800', marginVertical: 1 }}>{displayedSteps.toLocaleString()}</Text>
+                <Text style={{ color: '#D3DDF2', fontSize: 12.24 }}>{Math.max(0, STEP_GOAL - displayedSteps).toLocaleString()} to go</Text>
+              </View>
+            </Pressable>
+            <Pressable onPress={retrySteps} disabled={androidSteps.loading} style={syncPill}>
+              {androidSteps.loading ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="sync-outline" size={13} color="#fff" />}
+              <Text style={{ color: '#fff', fontSize: 11.73, marginLeft: 4 }}>{androidSteps.loading ? 'Syncing…' : 'Sync now'}</Text>
+            </Pressable>
+          </>
+        )}
       </LinearGradient>
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 19, marginBottom: 7 }}>
@@ -412,12 +498,23 @@ export default function TrackerScreen() {
   const renderSteps = () => (
     <>
       <DetailHeader title="Steps" onBack={() => setView('dashboard')} />
-      {stepError ? <Pressable onPress={() => void syncSteps()} style={{ flexDirection: 'row', alignItems: 'center', padding: 11, marginTop: 8, marginHorizontal: 2, marginBottom: 4, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.75)' }}><Ionicons name="alert-circle-outline" size={17} color="#A33C54" /><Text style={{ flex: 1, color: '#762A43', fontSize: 11, marginLeft: 7 }}>{stepError} Tap to retry.</Text></Pressable> : null}
+      {!androidStepsConnected ? (
+        <LinearGradient colors={panel} style={[dashboardCard, { marginTop: 20, minHeight: 180, justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+          <Ionicons name="walk-outline" size={42} color="#F2B6F1" />
+          <Text style={{ color: '#fff', fontSize: 20, fontWeight: '800', marginTop: 12 }}>Connect Your Steps</Text>
+          <Text style={{ color: '#D3DDF2', fontSize: 13, textAlign: 'center', marginTop: 7 }}>Allow SpineFit to read your daily step totals from Health Connect.</Text>
+          <Pressable onPress={() => void showConnectSteps()} style={{ minHeight: 46, alignSelf: 'stretch', marginTop: 18, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' }}>
+            <Text style={{ color: navy, fontSize: 14, fontWeight: '800' }}>Connect Steps</Text>
+          </Pressable>
+          {stepError ? <Text style={{ color: '#FFD5DB', fontSize: 12, textAlign: 'center', marginTop: 10 }}>{stepError}</Text> : null}
+        </LinearGradient>
+      ) : <>
+      {stepError ? <Pressable onPress={retrySteps} style={{ flexDirection: 'row', alignItems: 'center', padding: 11, marginTop: 8, marginHorizontal: 2, marginBottom: 4, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.75)' }}><Ionicons name="alert-circle-outline" size={17} color="#A33C54" /><Text style={{ flex: 1, color: '#762A43', fontSize: 11, marginLeft: 7 }}>{stepError} Tap to retry.</Text></Pressable> : null}
       <View style={{ alignItems: 'center', paddingTop: 22, paddingBottom: 21 }}>
         {progressRing(stepPercent, 140, '#E5B900', <View style={{ alignItems: 'center' }}><Ionicons name="walk" size={25} color={navy} /><Text style={{ color: navy, fontSize: 19.33, fontWeight: '800', marginTop: 2 }}>{stepPercent}%</Text><Text style={{ color: '#62739B', fontSize: 12.24 }}>of goal</Text></View>)}
         <Text style={{ color: '#344F85', fontSize: 32, fontWeight: '700', marginTop: 17 }}>{displayedSteps.toLocaleString()}</Text>
         <Text style={{ color: '#536A99', fontSize: 18 }}>{Math.max(0, STEP_GOAL - displayedSteps).toLocaleString()} to go</Text>
-        <Pressable onPress={() => void syncSteps()} style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.8)', paddingVertical: 9, paddingHorizontal: 15, marginTop: 11 }}><Ionicons name="sync-outline" size={14} color={navy} /><Text style={{ color: navy, fontSize: 11.73, marginLeft: 5 }}>Sync now</Text></Pressable>
+        <Pressable onPress={retrySteps} disabled={androidSteps.loading} style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.8)', paddingVertical: 9, paddingHorizontal: 15, marginTop: 11 }}>{androidSteps.loading ? <ActivityIndicator size="small" color={navy} /> : <Ionicons name="sync-outline" size={14} color={navy} />}<Text style={{ color: navy, fontSize: 11.73, marginLeft: 5 }}>{androidSteps.loading ? 'Syncing…' : 'Sync now'}</Text></Pressable>
         <Text style={{ color: theme.subtext, fontSize: 14, marginTop: 12 }}>
           {Platform.OS === 'android' && androidSteps.lastSynced
             ? `Last synced at ${androidSteps.lastSynced.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
@@ -438,6 +535,7 @@ export default function TrackerScreen() {
         {stepChart(displayedStepWeek)}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}><Text style={legendText}><Text style={{ color: '#F2B6F1' }}>■</Text> Goal progress</Text><Text style={legendText}><Text style={{ color: '#F2D486' }}>■</Text> Today</Text><Text style={legendText}>Goal 8,000</Text></View>
       </LinearGradient>
+      </>}
     </>
   );
 
@@ -514,6 +612,37 @@ export default function TrackerScreen() {
       <ScrollView contentContainerStyle={{ paddingHorizontal: 14, paddingTop: view === 'dashboard' ? 8 : 5, paddingBottom: 28 }} showsVerticalScrollIndicator={false}>
         {view === 'dashboard' ? renderDashboard() : view === 'steps' ? renderSteps() : renderWater()}
       </ScrollView>
+      <Modal
+        visible={connectStepsModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConnectStepsModalVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(8,13,36,0.68)', justifyContent: 'center', paddingHorizontal: 22, paddingVertical: 30 }}>
+          <View style={{ backgroundColor: theme.dark ? '#19275A' : '#FFFFFF', borderRadius: 24, padding: 22, borderWidth: 1, borderColor: 'rgba(27,37,96,0.12)', shadowColor: '#0B2F7A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 18, elevation: 8 }}>
+            <Text style={{ color: theme.text, fontSize: 21, fontWeight: '800', textAlign: 'center' }}>Connect Your Steps</Text>
+            <ScrollView style={{ maxHeight: 300, marginTop: 16 }} showsVerticalScrollIndicator={false}>
+              <Text style={{ color: theme.text, fontSize: 14, lineHeight: 21 }}>
+                Fine ur Spine requests permission to read your daily step count from Google Health Connect. Your daily step totals will be securely sent to our backend and stored with your account so you can view your activity history.
+                {'\n\n'}Distance, calories, and active minutes shown in the app are estimates calculated from your step count. SpineFit does not read these from separate Health Connect records.
+                {'\n\n'}We do not access other health records, use your step data for medical assessments, or sell it or use it for advertising.
+                {'\n\n'}This feature is optional. You can revoke permission in Health Connect settings and request deletion of previously stored data.
+              </Text>
+              <Pressable onPress={() => void Linking.openURL(PRIVACY_POLICY_URL).catch(() => Alert.alert('Unable to open link', 'Please try opening the Privacy Policy again.'))} style={{ alignSelf: 'center', paddingVertical: 13 }}>
+                <Text style={{ color: theme.primary, fontSize: 14, fontWeight: '700', textDecorationLine: 'underline' }}>Privacy Policy</Text>
+              </Pressable>
+            </ScrollView>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+              <Pressable onPress={() => setConnectStepsModalVisible(false)} disabled={connectingSteps} style={{ flex: 1, minHeight: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.border, backgroundColor: theme.dark ? '#222B63' : '#FFFFFF' }}>
+                <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }}>Not Now</Text>
+              </Pressable>
+              <Pressable onPress={() => void connectSteps()} disabled={connectingSteps} style={{ flex: 1.35, minHeight: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: navy }}>
+                {connectingSteps ? <ActivityIndicator color="#FFFFFF" /> : <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>Agree & Connect</Text>}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }

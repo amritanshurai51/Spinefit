@@ -18,7 +18,6 @@
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "POST_NOTIFICATIONS",
-        "ACTIVITY_RECOGNITION",
         "android.permission.health.READ_STEPS"
       ]
     },
@@ -43,6 +42,12 @@
         }
       ],
      "react-native-health-connect",
+      [
+        "./plugins/with-health-connect-privacy-policy",
+        {
+          "privacyPolicyUrl": "https://sites.google.com/view/fineurspine-privacy-policy/home"
+        }
+      ],
       [
       "expo-build-properties",
       {

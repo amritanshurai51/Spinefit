@@ -8,6 +8,7 @@ import { useAuth } from '../store/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
 import { setReminder } from '../services/notifications';
 import { friendlyAuthError } from '../api/firebase';
+import { PRIVACY_POLICY_URL } from '../config';
 
 type ProfileSettings = {
   notifications: boolean;
@@ -29,7 +30,6 @@ const NAVY_LIGHT = '#193C79';
 const WHITE = '#FFFFFF';
 const PALE = '#C7D8F6';
 const PINK = '#F2A2F1';
-const PRIVACY_POLICY_URL = 'https://sites.google.com/view/fineurspine-privacy-policy/home';
 const TERMS_OF_SERVICE_URL = 'https://sites.google.com/view/fineurspine-terms-of-service/home';
 const ACCOUNT_DELETION_URL = 'https://sites.google.com/view/fineurspine-user-data-deletion/home';
 

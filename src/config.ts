@@ -1,4 +1,5 @@
 export const BASE_URL = 'https://stream-backend-532964959512.asia-south1.run.app';
+export const PRIVACY_POLICY_URL = 'https://sites.google.com/view/fineurspine-privacy-policy/home';
 
 export const firebaseConfig = {
   apiKey: 'AIzaSyDLLBjqeATGOZeijF9b1wj5KcXO85EYgd8',
