@@ -9,7 +9,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Text } from '../components/Typography';
 import { Screen } from '../components/ui';
 import { useTheme } from '../theme/ThemeContext';
-import { registerForNotifications, setReminder } from '../services/notifications';
+import { setReminder } from '../services/notifications';
 import { WaterBody } from '../components/WaterBody';
 import { WaterMugIcon } from '../components/WaterMugIcon';
 import { useWaterIntake } from '../store/useWaterIntake';
@@ -324,13 +324,15 @@ export default function TrackerScreen() {
   };
 
   const toggleReminder = async (key: string, enabled: boolean) => {
-    if (enabled) {
-      try { await registerForNotifications(); } catch { /* Saving the preference still works without permission. */ }
+    try {
+      await setReminder(key, enabled);
+    } catch (error: any) {
+      Alert.alert('Reminder not updated', error?.message ?? 'Could not schedule this reminder. Check notification permissions and try again.');
+      return;
     }
     const next = { ...reminderEnabled, [key]: enabled };
     setReminderEnabled(next);
     await AsyncStorage.setItem('reminders', JSON.stringify(next)).catch(() => {});
-    void setReminder(key, enabled).catch(error => console.warn('Could not update reminder:', error));
   };
 
   const background = theme.dark ? ['#171D50', '#0A1740'] as const : ['#F7D7F5', '#FCEBFB'] as const;

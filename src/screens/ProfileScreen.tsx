@@ -76,6 +76,7 @@ export default function ProfileScreen({ navigation }: any) {
     if (period === 'PM') hour += 12;
     setReminder('exercise', enabled, { hour, minute: Number(minuteText) }).catch(error => {
       console.warn('Could not update the exercise reminder:', error);
+      Alert.alert('Reminder not updated', error?.message ?? 'Check notification permissions and try again.');
     });
   };
 
