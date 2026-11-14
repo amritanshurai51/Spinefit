@@ -1,41 +1,41 @@
 {
   "project_info": {
-    "project_number": "532964959512",
-    "project_id": "dev1-91949",
-    "storage_bucket": "dev1-91949.firebasestorage.app"
+    "project_number": "545153519902",
+    "project_id": "fitnessapp-969b6",
+    "storage_bucket": "fitnessapp-969b6.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:532964959512:android:5f1b6fb479d3a5a7c32a6d",
+        "mobilesdk_app_id": "1:545153519902:android:f0a3f2a37e579c47ff390f",
         "android_client_info": {
-          "package_name": "com.amritanshu.spinefit"
+          "package_name": "com.fineurspinefitness.app"
         }
       },
       "oauth_client": [
         {
-          "client_id": "532964959512-6scssgmofpd0hsfvb5gqpj8m06uru6um.apps.googleusercontent.com",
+          "client_id": "545153519902-q1u2d7kcsri5ge2pfaj4p0rlaf5hfbtr.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.amritanshu.spinefit",
-            "certificate_hash": "8de378f232140561c0c3af655fe7e52708f13af1"
+            "package_name": "com.fineurspinefitness.app",
+            "certificate_hash": "a597de5e8fef5082554891a7070aec1184ea48b8"
           }
         },
         {
-          "client_id": "532964959512-98inim78d01rfjnabj0g4rpn49336q54.apps.googleusercontent.com",
+          "client_id": "545153519902-6ksbkmnbmb3nv6b5nujmi8tl0huodet9.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyCui27GdRs-5blz8zqXm1Sd78csT0f5zQQ"
+          "current_key": "AIzaSyBwzpBbTEB1vUBZ5fUwh1HaPm3Sg2R7G4w"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "532964959512-98inim78d01rfjnabj0g4rpn49336q54.apps.googleusercontent.com",
+              "client_id": "545153519902-6ksbkmnbmb3nv6b5nujmi8tl0huodet9.apps.googleusercontent.com",
               "client_type": 3
             }
           ]

@@ -17,7 +17,7 @@ import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import HomeScreen from '../screens/HomeScreen';
 import WellnessTipsScreen from '../screens/WellnessTipsScreen';
 import TrackerScreen from '../screens/TrackerScreen';
-import FavouritesScreen from '../screens/FavouritesScreen';
+import LibraryScreen from '../screens/LibraryScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SessionDetailScreen from '../screens/SessionDetailScreen';
 import WaterIntakeScreen from '../screens/WaterIntakeScreen';
@@ -26,7 +26,7 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function Tabs() {
-  const icons: Record<string, any> = { Home: 'home-outline', Tracker: 'pulse', Favourite: 'heart-outline', Profile: 'person-outline' };
+  const icons: Record<string, any> = { Home: 'home-outline', Tracker: 'pulse', Library: 'library-outline', Profile: 'person-outline' };
   return (
     <Tab.Navigator screenOptions={({ route }) => ({
       headerShown: false, tabBarStyle: { backgroundColor: '#FFFFFF', borderTopWidth: 0, height: 64, paddingBottom: 8, paddingTop: 6 },
@@ -46,7 +46,7 @@ function Tabs() {
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Wellness Tips" component={WellnessTipsScreen} />
       <Tab.Screen name="Tracker" component={TrackerScreen} />
-      <Tab.Screen name="Favourite" component={FavouritesScreen} />
+      <Tab.Screen name="Library" component={LibraryScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );

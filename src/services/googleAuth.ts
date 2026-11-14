@@ -4,7 +4,7 @@ import { auth } from '../api/firebase';
 import { Profile } from '../api/endpoints';
 import { BASE_URL } from '../config';
 
-const GOOGLE_WEB_CLIENT_ID = '532964959512-98inim78d01rfjnabj0g4rpn49336q54.apps.googleusercontent.com';
+const GOOGLE_WEB_CLIENT_ID = '545153519902-6ksbkmnbmb3nv6b5nujmi8tl0huodet9.apps.googleusercontent.com';
 
 // This module is imported by AuthContext at app startup, so configure native
 // Google sign-in once before the login screen can invoke it.
