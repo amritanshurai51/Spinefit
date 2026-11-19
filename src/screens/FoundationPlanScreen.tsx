@@ -54,7 +54,6 @@ export default function FoundationPlanScreen({ onBack, onPlayVideo }: { onBack: 
   const { videos } = useContent();
   const [viewedIds, setViewedIds] = useState<string[]>([]);
   const [loadingProgress, setLoadingProgress] = useState(true);
-
   const ink = theme.dark ? '#F4F1FF' : '#14306B';
   const muted = theme.dark ? '#BEC7E2' : '#596B96';
   const surface = theme.dark ? '#17235C' : '#FFFFFF';
@@ -142,7 +141,7 @@ export default function FoundationPlanScreen({ onBack, onPlayVideo }: { onBack: 
                   <View style={{ width: 60, height: 61, borderRadius: 17, borderWidth: 1, borderColor: theme.dark ? '#FFFFFF16' : '#E7DDF0', backgroundColor: theme.dark ? '#FFFFFF08' : '#F5EAF8', alignItems: 'flex-start', justifyContent: 'flex-start', padding: 8 }}>
                     <Text style={{ color: muted, fontSize: 9, lineHeight: 13, fontWeight: '800', letterSpacing: 0.4 }}>VIDEO</Text>
                     <Text style={{ color: muted, fontSize: 9, fontWeight: '800' }}>{index + 1}</Text>
-                    <View style={{ position: 'absolute', right: 7, bottom: -1, width: 24, height: 24, borderRadius: 12, backgroundColor: viewed ? green : ink, alignItems: 'center', justifyContent: 'center' }}>
+                    <View style={{ position: 'absolute', right: 6, bottom: 5, width: 24, height: 24, borderRadius: 12, backgroundColor: viewed ? green : ink, alignItems: 'center', justifyContent: 'center' }}>
                       <Ionicons name={viewed ? 'checkmark' : 'play'} size={12} color="#FFFFFF" />
                     </View>
                   </View>
@@ -177,7 +176,7 @@ export default function FoundationPlanScreen({ onBack, onPlayVideo }: { onBack: 
           <Text style={{ color: muted, fontSize: 13 }}> · about {averageMinutesPerWorkout} min a day</Text>
         </View>
 
-        <View style={{ position: 'absolute', top: 177, bottom: 95, left: 24, width: 2, backgroundColor: theme.dark ? '#FFFFFF1C' : '#D9D1E3' }} />
+        <View style={{ position: 'absolute', top: 187, bottom: 220, left: 40, width: 2, backgroundColor: theme.dark ? '#FFFFFF1C' : '#D9D1E3' }} />
         {loadingProgress ? <ActivityIndicator color={ink} style={{ marginVertical: 44 }} /> : planDays.map(renderPlanDay)}
 
         <View style={{ marginTop: 22, padding: 18, borderRadius: 19, borderWidth: 1, borderColor: theme.dark ? '#FFFFFF18' : '#E8DFF0', backgroundColor: theme.dark ? '#FFFFFF08' : 'rgba(255,255,255,0.55)' }}>

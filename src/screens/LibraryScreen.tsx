@@ -77,7 +77,7 @@ export default function LibraryScreen({ navigation }: { navigation: any }) {
       <Pressable onPress={() => openVideo(video)} accessibilityRole="button" accessibilityLabel={`Play ${video.title}`} style={{ width: 60, height: 61, borderRadius: 17, borderWidth: 1, borderColor: theme.dark ? '#FFFFFF16' : '#E0E4F4', backgroundColor: theme.dark ? '#FFFFFF08' : '#E9ECF9', padding: 8, justifyContent: 'flex-start' }}>
         <Text style={{ color: muted, fontSize: 9, lineHeight: 13, fontWeight: '800', letterSpacing: 0.4 }}>VIDEO</Text>
         <Text style={{ color: muted, fontSize: 9, fontWeight: '800' }}>{index + 1}</Text>
-        <View style={{ position: 'absolute', right: 6, bottom: -1, width: 24, height: 24, borderRadius: 12, backgroundColor: ink, alignItems: 'center', justifyContent: 'center' }}><Ionicons name="play" size={11} color="#FFFFFF" /></View>
+        <View style={{ position: 'absolute', right: 5, bottom: 5, width: 24, height: 24, borderRadius: 12, backgroundColor: ink, alignItems: 'center', justifyContent: 'center' }}><Ionicons name="play" size={11} color="#FFFFFF" /></View>
       </Pressable>
       <Pressable onPress={() => openVideo(video)} style={{ flex: 1, marginHorizontal: 12 }}>
         <Text numberOfLines={2} style={{ color: ink, fontSize: 14, lineHeight: 19, fontWeight: '700' }}>{video.title}</Text>

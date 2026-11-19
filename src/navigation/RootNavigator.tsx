@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { SvgXml } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../components/Typography';
 import { wellnessIconXml } from '../assets/wellnessIconXml';
 import { useAuth } from '../store/AuthContext';
@@ -26,10 +27,11 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function Tabs() {
+  const insets = useSafeAreaInsets();
   const icons: Record<string, any> = { Home: 'home-outline', Tracker: 'pulse', Library: 'library-outline', Profile: 'person-outline' };
   return (
     <Tab.Navigator screenOptions={({ route }) => ({
-      headerShown: false, tabBarStyle: { backgroundColor: '#FFFFFF', borderTopWidth: 0, height: 64, paddingBottom: 8, paddingTop: 6 },
+      headerShown: false, tabBarStyle: { backgroundColor: '#FFFFFF', borderTopWidth: 0, height: 64 + insets.bottom, paddingBottom: 8 + insets.bottom, paddingTop: 6 },
       tabBarActiveTintColor: '#F0A3EF', tabBarInactiveTintColor: '#183675',
       tabBarLabel: ({ focused }) => <Text style={{ color: focused ? '#F0A3EF' : '#183675', fontSize: 10, fontWeight: '500' }}>{route.name}</Text>,
       tabBarItemStyle: { transform: [{ translateY: -8 }] },

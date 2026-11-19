@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, View } from 'react-native';
 import { Text } from '../components/Typography';
 import { Ionicons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -10,8 +10,39 @@ import { useTheme } from '../theme/ThemeContext';
 import { useFavourites } from '../store/FavouritesContext';
 
 function Player({ uri }: { uri: string }) {
+  const { theme } = useTheme();
+  const [subtitleTracks, setSubtitleTracks] = useState<any[]>([]);
   const player = useVideoPlayer({ uri, contentType: 'hls' } as any, instance => { instance.play(); });
-  return <VideoView player={player} style={{ width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000' }} fullscreenOptions={{ enable: true }} allowsPictureInPicture nativeControls />;
+
+  useEffect(() => {
+    const subscription = player.addListener('sourceLoad', event => {
+      setSubtitleTracks(event.availableSubtitleTracks ?? []);
+    });
+    return () => subscription.remove();
+  }, [player]);
+
+  const chooseCaptions = () => {
+    if (!subtitleTracks.length) {
+      Alert.alert('Captions unavailable', 'This video stream does not include caption tracks. The video server must add captions to its HLS playlist.');
+      return;
+    }
+    Alert.alert('Captions', 'Choose a subtitle track', [
+      { text: 'Off', onPress: () => { player.subtitleTrack = null; } },
+      ...subtitleTracks.map(track => ({
+        text: track.label || track.language || track.name || 'Captions',
+        onPress: () => { player.subtitleTrack = track; },
+      })),
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  return <>
+    <VideoView player={player} style={{ width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000' }} fullscreenOptions={{ enable: true }} allowsPictureInPicture nativeControls />
+    <Pressable onPress={chooseCaptions} accessibilityRole="button" accessibilityLabel="Choose captions" style={{ alignSelf: 'flex-end', marginTop: 8, marginRight: 20, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 12, backgroundColor: '#EEDCF3', flexDirection: 'row', alignItems: 'center' }}>
+      <Ionicons name="chatbox-ellipses-outline" size={16} color={theme.text} />
+      <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700', marginLeft: 6 }}>CC</Text>
+    </Pressable>
+  </>;
 }
 
 export default function SessionDetailScreen({ route, navigation }: any) {
