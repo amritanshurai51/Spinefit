@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Pressable, View } from 'react-native';
+import { Alert, Linking, Modal, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { Text } from './Typography';
@@ -12,6 +12,23 @@ type Props = {
 };
 
 export function LegalDocumentModal({ visible, title, html, onClose }: Props) {
+  const documentHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>body { margin: 0; background: #fff; }</style>
+</head>
+<body>${html}</body>
+</html>`;
+
+  const openLink = (url: string) => {
+    if (!/^(https?:|mailto:)/i.test(url)) return;
+    void Linking.openURL(url).catch(() => {
+      Alert.alert('Unable to open link', 'Please check your browser or email app and try again.');
+    });
+  };
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: '#080D2480', justifyContent: 'flex-end' }}>
@@ -22,7 +39,17 @@ export function LegalDocumentModal({ visible, title, html, onClose }: Props) {
               <Ionicons name="close" size={21} color="#14306B" />
             </Pressable>
           </View>
-          <WebView source={{ html }} originWhitelist={['*']} style={{ flex: 1, backgroundColor: '#FFFFFF' }} />
+          <WebView
+            source={{ html: documentHtml }}
+            originWhitelist={['*']}
+            onShouldStartLoadWithRequest={({ url }) => {
+              if (url === 'about:blank' || url.startsWith('about:blank#')) return true;
+              openLink(url);
+              return false;
+            }}
+            onOpenWindow={({ nativeEvent }) => openLink(nativeEvent.targetUrl)}
+            style={{ flex: 1, backgroundColor: '#FFFFFF' }}
+          />
         </View>
       </View>
     </Modal>

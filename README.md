@@ -7,6 +7,25 @@
 
 Video + push tokens need a dev build for full features: `npx expo run:android` / `npx expo run:ios`.
 
+## Legal documents
+
+Edit the source HTML in `src/assets/legal/`:
+
+- `user-agreement.html` → `legalDocuments.userAgreement`
+- `terms-of-service.html` → `legalDocuments.termsOfService`
+- `privacy-policy.html` → `legalDocuments.privacyPolicy`
+
+Signup and Profile display these documents offline through `LegalDocumentModal`.
+`src/assets/legalDocuments.ts` is generated from the HTML. Metro synchronizes it
+on startup for development and builds. After editing HTML while Metro is already
+running, run `npm run legal:sync` or restart Metro. Use `npm run legal:check` to
+verify that the bundled content matches all three source files.
+
+Links inside the documents open in the browser or email app. The hosted Google
+Sites policies and account-deletion instructions are separate published copies;
+updating the bundled HTML does not publish changes to those pages. Health Connect
+uses the hosted Privacy Policy URL configured in `app.json` and `src/config.ts`.
+
 ## Flow
 Welcome (logo, Get Started, "Already member? Login") -> Plans (X top-left closes) -> Login
 (Welcome back, Forgot email/password, Create account) -> Tabs: Home, Wellness Tips, Tracker, Favourite, Profile.

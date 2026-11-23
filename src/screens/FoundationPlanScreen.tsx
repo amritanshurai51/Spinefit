@@ -79,8 +79,9 @@ export default function FoundationPlanScreen({ onBack, onPlayVideo }: { onBack: 
 
   const planDays = useMemo(() => buildPlan(videos), [videos]);
   const allPlanVideos = planDays.flatMap(day => day.videos);
-  const totalMinutes = Math.round(allPlanVideos.reduce((sum, video) => sum + video.duration, 0) / 60);
-  const averageMinutesPerWorkout = allPlanVideos.length ? Math.round(totalMinutes / ACTIVE_DAY_CONFIG.length) : 0;
+  // Duration estimates are hidden for closed testing.
+  // const totalMinutes = Math.round(allPlanVideos.reduce((sum, video) => sum + video.duration, 0) / 60);
+  // const averageMinutesPerWorkout = allPlanVideos.length ? Math.round(totalMinutes / ACTIVE_DAY_CONFIG.length) : 0;
   const viewedSet = useMemo(() => new Set(viewedIds), [viewedIds]);
 
   const openVideo = async (video: HomeVideo) => {
@@ -121,7 +122,10 @@ export default function FoundationPlanScreen({ onBack, onPlayVideo }: { onBack: 
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ color: ink, fontSize: 16, fontWeight: '800' }}>{day.title}</Text>
-              <Text style={{ color: muted, fontSize: 12, lineHeight: 18, marginTop: 5 }}>No session. Only the 7 AM and 9 PM stretches.</Text>
+              <Text style={{ color: muted, fontSize: 12, lineHeight: 18, marginTop: 5 }}>
+                No session.
+                {/* Only the 7 AM and 9 PM stretches. */}
+              </Text>
             </View>
           </View>
         ) : (
@@ -131,7 +135,13 @@ export default function FoundationPlanScreen({ onBack, onPlayVideo }: { onBack: 
               {isToday && <View style={{ borderRadius: 12, backgroundColor: theme.dark ? '#6D3F78' : '#EFA3E9', paddingHorizontal: 10, paddingVertical: 4 }}><Text style={{ color: ink, fontSize: 11, fontWeight: '700' }}>Today</Text></View>}
             </View>
             <Text style={{ color: complete ? green : muted, fontSize: 12, marginTop: 5, marginBottom: 12 }}>
-              {complete ? 'Done this week' : day.videos.length ? `${day.videos.length} videos · ${Math.round(day.videos.reduce((sum, video) => sum + video.duration, 0) / 60)} min${completedCount ? ` · ${completedCount} done` : ''}` : 'Videos will appear here when available'}
+              {complete ? 'Done this week' : day.videos.length ? (
+                <>
+                  {day.videos.length} videos
+                  {/* · {Math.round(day.videos.reduce((sum, video) => sum + video.duration, 0) / 60)} min */}
+                  {completedCount ? ` · ${completedCount} done` : ''}
+                </>
+              ) : 'Videos will appear here when available'}
             </Text>
 
             {day.videos.map((video, index) => {
@@ -147,7 +157,10 @@ export default function FoundationPlanScreen({ onBack, onPlayVideo }: { onBack: 
                   </View>
                   <View style={{ flex: 1, marginLeft: 12 }}>
                     <Text numberOfLines={2} style={{ color: ink, fontSize: 14, lineHeight: 19, fontWeight: '700' }}>{video.title}</Text>
-                    <Text style={{ color: viewed ? green : muted, fontSize: 12, marginTop: 5 }}>{viewed ? 'Done' : `${Math.max(1, Math.round(video.duration / 60))} min`}</Text>
+                    {viewed && <Text style={{ color: green, fontSize: 12, marginTop: 5 }}>Done</Text>}
+                    {/* Restore the duration label when accurate durations are available.
+                    {!viewed && <Text style={{ color: muted, fontSize: 12, marginTop: 5 }}>{Math.max(1, Math.round(video.duration / 60))} min</Text>}
+                    */}
                   </View>
                   <Ionicons name="chevron-forward" size={17} color={muted} />
                 </Pressable>
@@ -173,7 +186,7 @@ export default function FoundationPlanScreen({ onBack, onPlayVideo }: { onBack: 
         <View style={{ flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', marginTop: 5, marginBottom: 22 }}>
           <Text style={{ color: ink, fontSize: 23, fontWeight: '800', marginRight: 12 }}>Foundation</Text>
           <Text style={{ color: ink, fontSize: 13, fontWeight: '700' }}>{allPlanVideos.length} videos</Text>
-          <Text style={{ color: muted, fontSize: 13 }}> · about {averageMinutesPerWorkout} min a day</Text>
+          {/* <Text style={{ color: muted, fontSize: 13 }}> · about {averageMinutesPerWorkout} min a day</Text> */}
         </View>
 
         <View style={{ position: 'absolute', top: 187, bottom: 220, left: 40, width: 2, backgroundColor: theme.dark ? '#FFFFFF1C' : '#D9D1E3' }} />

@@ -21,9 +21,10 @@ const weekdayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 type EnergyChoice = 'full' | 'short' | 'low';
 
 const ENERGY_CHOICES: { id: EnergyChoice; title: string; description: string }[] = [
-  { id: 'full', title: 'Full session', description: 'Warm-up, 3 videos, cool-down · 32 min' },
-  { id: 'short', title: 'Short on time', description: 'Just the warm-up · 5 min' },
-  { id: 'low', title: 'Low on energy', description: 'Warm-up and cool-down stretches · 11 min' },
+  // Time estimates are hidden for closed testing until accurate session durations are available.
+  { id: 'full', title: 'Full session', description: 'Warm-up, 3 videos, cool-down' /* + ' · 32 min' */ },
+  { id: 'short', title: 'Short on time', description: 'Just the warm-up' /* + ' · 5 min' */ },
+  { id: 'low', title: 'Low on energy', description: 'Warm-up and cool-down' /* + ' · 11 min' */ },
 ];
 
 export default function HomeScreen({ navigation }: any) {
@@ -154,9 +155,11 @@ export default function HomeScreen({ navigation }: any) {
               <View style={{ paddingHorizontal: 22, paddingTop: 20, paddingBottom: 16 }}>
                 <Text style={{ color: muted, fontSize: 14, lineHeight: 22 }}>One guided session, from warm-up to cool-down.</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 16, marginBottom: 17 }}>
+                  {/* Session duration is hidden for closed testing.
                   <Ionicons name="time-outline" size={16} color={ink} />
                   <Text style={{ color: ink, fontSize: 12, marginLeft: 7 }}>{hero ? `${Math.max(1, Math.round(hero.duration / 60))} min full session` : '32 min full session'}</Text>
                   <View style={{ flex: 1 }} />
+                  */}
                   <Text style={{ color: ink, fontSize: 12 }}>{Math.min(featured.length || 3, 3)} main videos</Text>
                 </View>
                 <Pressable onPress={() => { setSessionStage('energy'); setSessionModalVisible(true); }} disabled={!hero} style={{ height: 58, borderRadius: 20, backgroundColor: theme.dark ? '#243A83' : '#1B286B', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', shadowColor: '#1B2560', shadowOpacity: 0.18, shadowRadius: 9, shadowOffset: { width: 0, height: 5 }, elevation: 3 }}>
@@ -223,6 +226,7 @@ export default function HomeScreen({ navigation }: any) {
               <Text style={{ color: muted, fontSize: 10, marginTop: 7 }}>Your session history will appear here.</Text>
             </View>
 
+            {/* Daily stretches are hidden until the videos are available.
             <View style={{ marginHorizontal: 20, marginTop: 30 }}>
               <Text style={{ color: ink, fontSize: 23, fontWeight: '800' }}>Daily stretches</Text>
               <Text style={{ color: muted, fontSize: 13, marginTop: 5, marginBottom: 15 }}>A gentle start. A calmer finish.</Text>
@@ -245,6 +249,7 @@ export default function HomeScreen({ navigation }: any) {
                 ))}
               </View>
             </View>
+            */}
           </>
         )}
       </ScrollView>
@@ -307,7 +312,10 @@ export default function HomeScreen({ navigation }: any) {
                     {video.thumbnail_url ? <Image source={{ uri: video.thumbnail_url }} style={{ width: 64, height: 58, borderRadius: 12, backgroundColor: '#D8D3E2' }} resizeMode="cover" /> : <View style={{ width: 64, height: 58, borderRadius: 12, backgroundColor: theme.dark ? '#29366E' : '#F0EAF7', alignItems: 'center', justifyContent: 'center' }}><Ionicons name="play" size={18} color={ink} /></View>}
                     <View style={{ flex: 1, marginHorizontal: 12 }}>
                       <Text numberOfLines={2} style={{ color: ink, fontSize: 13, lineHeight: 18, fontWeight: '700' }}>{video.title}</Text>
-                      <Text style={{ color: muted, fontSize: 11, marginTop: 5 }}>{index + 1} of {sessionVideos.length} · {Math.max(1, Math.round(video.duration / 60))} min</Text>
+                      <Text style={{ color: muted, fontSize: 11, marginTop: 5 }}>
+                        {index + 1} of {sessionVideos.length}
+                        {/* · {Math.max(1, Math.round(video.duration / 60))} min */}
+                      </Text>
                     </View>
                     <Ionicons name="play-circle" size={29} color={accent} />
                   </Pressable>

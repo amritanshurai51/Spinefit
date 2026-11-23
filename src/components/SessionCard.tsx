@@ -17,7 +17,10 @@ export default function SessionCard({ v, onPress }: { v: HomeVideo; onPress: () 
         <Image source={{ uri: v.thumbnail_url ?? undefined }} style={{ width: '100%', aspectRatio: 1.55, borderRadius: 10, backgroundColor: '#ccc' }} />
         <LinearGradient pointerEvents="none" colors={['transparent', 'rgba(0,0,0,0.72)']} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '48%', borderBottomLeftRadius: 10, borderBottomRightRadius: 10 }} />
         <View style={{ position: 'absolute', left: 8, bottom: 8, flexDirection: 'row', alignItems: 'center' }}>
-          <Ionicons name="play" size={12} color="#fff" /><Text style={{ color: '#fff', fontSize: 11, marginLeft: 3 }}>{Math.max(1, Math.round(v.duration / 60))}Min</Text>
+          <Ionicons name="play" size={12} color="#fff" />
+          {/* Video durations are hidden for closed testing.
+          <Text style={{ color: '#fff', fontSize: 11, marginLeft: 3 }}>{Math.max(1, Math.round(v.duration / 60))}Min</Text>
+          */}
         </View>
         <Pressable hitSlop={10} onPress={() => toggle(v.video_id)} style={{ position: 'absolute', right: 8, top: 8 }}>
           <Ionicons name={isFav(v.video_id) ? 'heart' : 'heart-outline'} size={20} color={isFav(v.video_id) ? '#FF5C8A' : '#fff'} />

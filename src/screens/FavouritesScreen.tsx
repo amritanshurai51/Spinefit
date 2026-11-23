@@ -13,9 +13,9 @@ import VideoOverflowMenu from '../components/VideoOverflowMenu';
 import { videosIconXml, wellnessTipIconXml } from '../assets/favouriteIcons';
 
 type Props = { navigation: any };
-type SavedItemProps = { video: HomeVideo; title: string; image: string; duration: string; onPress: () => void; onToggle: () => void; saved: boolean; width: number };
+type SavedItemProps = { video: HomeVideo; title: string; image: string; /* duration: string; */ onPress: () => void; onToggle: () => void; saved: boolean; width: number };
 
-function VideoTile({ video, title, image, duration, onPress, onToggle, saved, width }: SavedItemProps) {
+function VideoTile({ video, title, image, /* duration, */ onPress, onToggle, saved, width }: SavedItemProps) {
   const { theme } = useTheme();
   return (
     <View style={{ width, marginBottom: 17 }}>
@@ -25,7 +25,9 @@ function VideoTile({ video, title, image, duration, onPress, onToggle, saved, wi
         <Pressable onPress={onToggle} hitSlop={9} style={styles.heartButton}>
           <Ionicons name={saved ? 'heart' : 'heart-outline'} size={15} color={saved ? '#FF315B' : '#fff'} />
         </Pressable>
+        {/* Video durations are hidden for closed testing.
         <View style={styles.duration}><Ionicons name="play" size={9} color="#fff" /><Text style={styles.durationText}>{duration}</Text></View>
+        */}
       </Pressable>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <Text numberOfLines={1} style={[styles.tileTitle, { color: theme.text, flex: 1 }]}>{title}</Text>
@@ -43,7 +45,7 @@ export default function FavouritesScreen({ navigation }: Props) {
   const items: HomeVideo[] = ids.map((id: string) => byId(id)).filter((video: HomeVideo | undefined): video is HomeVideo => Boolean(video));
   const [tab, setTab] = useState<'videos' | 'tips'>('videos');
   const isVideos = tab === 'videos';
-  const totalMinutes = items.reduce((sum, video) => sum + Math.round(video.duration / 60), 0);
+  // const totalMinutes = items.reduce((sum, video) => sum + Math.round(video.duration / 60), 0);
   const gridWidth = (screenWidth - 56) / 2;
   const latestVideo = items[0];
 
@@ -72,7 +74,10 @@ export default function FavouritesScreen({ navigation }: Props) {
         <Text style={[styles.eyebrow, { color: theme.dark ? '#F4A9F0' : '#1B2560' }]}>YOUR COLLECTION</Text>
         <Text style={[styles.heading, { color: theme.text }]}>Everything you{ '\n'}<Text style={styles.headingAccent}>keep</Text>, in one place</Text>
         <View style={styles.summaryRow}>
-          <Text style={[styles.summary, { color: theme.subtext, fontWeight: '500' }]}><Text style={{ fontWeight: '600' }}>{ids.length}</Text> videos · <Text style={{ fontWeight: '600' }}>{totalMinutes}</Text> min of guided movement</Text>
+          <Text style={[styles.summary, { color: theme.subtext, fontWeight: '500' }]}>
+            <Text style={{ fontWeight: '600' }}>{ids.length}</Text> videos
+            {/* · <Text style={{ fontWeight: '600' }}>{totalMinutes}</Text> min of guided movement */}
+          </Text>
           <Pressable onPress={clearSaved} hitSlop={8}>
             <Text style={styles.clearText}>Clear all</Text>
           </Pressable>
@@ -104,7 +109,7 @@ export default function FavouritesScreen({ navigation }: Props) {
                 <View style={styles.featuredCopy}>
                   <View style={{ flex: 1 }}>
                     <Text numberOfLines={1} style={styles.featuredTitle}>{latestVideo.title}</Text>
-                    <Text style={styles.featuredMeta}>{Math.round(latestVideo.duration / 60)} min</Text>
+                    {/* <Text style={styles.featuredMeta}>{Math.round(latestVideo.duration / 60)} min</Text> */}
                   </View>
                   <VideoOverflowMenu video={latestVideo} />
                   <View style={styles.playButton}><Ionicons name="play" size={16} color="#32134D" /></View>
@@ -117,7 +122,8 @@ export default function FavouritesScreen({ navigation }: Props) {
             </View>
             {ids.length ? <View style={styles.grid}>
               {items.map(video => <VideoTile key={video.video_id} video={video} title={video.title} image={video.thumbnail_url ?? ''}
-                duration={`${Math.round(video.duration / 60)} Min`} width={gridWidth} onPress={() => openSession(video)}
+                // duration={`${Math.round(video.duration / 60)} Min`}
+                width={gridWidth} onPress={() => openSession(video)}
                 onToggle={() => toggle(video.video_id)} saved />)}
             </View> : <EmptyCollection icon="heart-outline" message="Your saved videos will appear here." />}
           </>
@@ -170,7 +176,7 @@ const styles = StyleSheet.create({
   featuredHeart: { position: 'absolute', top: 10, right: 10, width: 25, height: 25, borderRadius: 14, backgroundColor: 'rgba(245,245,250,0.86)', alignItems: 'center', justifyContent: 'center' },
   featuredCopy: { position: 'absolute', bottom: 0, left: 0, right: 0, minHeight: 48, paddingHorizontal: 11, paddingVertical: 8, backgroundColor: 'rgba(7,19,42,0.7)', flexDirection: 'row', alignItems: 'center', gap: 8 },
   featuredTitle: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  featuredMeta: { color: '#D0D7E4', fontSize: 10, marginTop: 3 },
+  // featuredMeta: { color: '#D0D7E4', fontSize: 10, marginTop: 3 },
   playButton: { width: 30, height: 30, borderRadius: 17, backgroundColor: '#F0A5E9', alignItems: 'center', justifyContent: 'center' },
   listHeadingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 1 },
   sectionCount: { fontSize: 10, marginBottom: 9 },
@@ -179,8 +185,8 @@ const styles = StyleSheet.create({
   tileImage: { width: '100%', height: '100%' },
   imageShade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '52%' },
   heartButton: { position: 'absolute', right: 7, top: 7, width: 22, height: 22, borderRadius: 12, backgroundColor: 'rgba(238,240,247,0.85)', alignItems: 'center', justifyContent: 'center' },
-  duration: { position: 'absolute', bottom: 6, left: 7, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(5,15,37,0.72)', borderRadius: 9, paddingHorizontal: 6, paddingVertical: 3 },
-  durationText: { color: '#fff', fontSize: 10, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 3 },
+  // duration: { position: 'absolute', bottom: 6, left: 7, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(5,15,37,0.72)', borderRadius: 9, paddingHorizontal: 6, paddingVertical: 3 },
+  // durationText: { color: '#fff', fontSize: 10, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 3 },
   tileTitle: { fontSize: 11, fontWeight: '600', marginTop: 6 },
   empty: { alignItems: 'center', paddingTop: 32, paddingBottom: 28 },
   emptyIcon: { width: 48, height: 48, borderRadius: 25, backgroundColor: 'rgba(245,173,239,0.12)', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },

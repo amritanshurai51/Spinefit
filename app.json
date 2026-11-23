@@ -41,7 +41,7 @@
           "background": false
         }
       ],
-     "react-native-health-connect",
+      "react-native-health-connect",
       [
         "./plugins/with-health-connect-privacy-policy",
         {
@@ -49,14 +49,15 @@
         }
       ],
       [
-      "expo-build-properties",
-      {
-        "android": {
-          "compileSdkVersion": 36,
-          "minSdkVersion": 26
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 36,
+            "minSdkVersion": 26
+          }
         }
-      }
-    ]
+      ],
+      "expo-status-bar"
     ],
     "extra": {
       "eas": {

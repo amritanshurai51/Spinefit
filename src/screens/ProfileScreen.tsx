@@ -217,7 +217,7 @@ export default function ProfileScreen({ navigation }: any) {
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <IconBox name="person" />
-              <Text style={{ color: WHITE, fontSize: 13, flex: 1, marginLeft: 10 }}>SpineFit wellness account</Text>
+              <Text style={{ color: WHITE, fontSize: 13, flex: 1, marginLeft: 10 }}>SpineFit account</Text>
               <Ionicons name="checkmark-circle" size={15} color="#50D69B" />
             </View>
           </View>
@@ -254,8 +254,10 @@ export default function ProfileScreen({ navigation }: any) {
         <View style={{ backgroundColor: NAVY_LIGHT, borderRadius: 17, paddingVertical: 2 }}>
           {settingRow('notifications-outline', 'Notifications', 'Reminders and updates on this device', settings.notifications, value => toggleSetting('notifications', value))}
           <View style={{ height: 1, backgroundColor: '#FFFFFF18', marginHorizontal: 12 }} />
+          {/* Email updates are temporarily disabled; keep the option for later.
           {settingRow('mail-outline', 'Email updates', 'Plan, billing and clinic news', settings.emailUpdates, value => toggleSetting('emailUpdates', value))}
           <View style={{ height: 1, backgroundColor: '#FFFFFF18', marginHorizontal: 12 }} />
+          */}
           {settingRow('time-outline', 'Daily exercise reminder', 'A nudge to do your routine', settings.exerciseReminder, value => toggleSetting('exerciseReminder', value))}
           <View style={{ height: 1, backgroundColor: '#FFFFFF18', marginHorizontal: 12 }} />
           <Pressable onPress={() => setTimePickerVisible(true)} style={{ minHeight: 66, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 11 }}>

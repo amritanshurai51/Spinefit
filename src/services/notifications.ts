@@ -31,7 +31,7 @@ type Rem = { title: string; body: string; startHour: number; endHour: number; ev
 export const REMINDERS: Record<string, Rem> = {
   steps: { title: 'Step goal check-in', body: 'How are your steps today? Take a short walk!', startHour: 9, endHour: 18, everyMin: 120 },
   water: { title: `Time to hydrate \u{1F4A7}`, body: 'Drink a glass of water.', startHour: 7, endHour: 21, everyMin: 90 },
-  exercise: { title: 'Exercise time', body: 'A 10-minute posture session is waiting for you.', startHour: 18, endHour: 18, everyMin: 1440 },
+  exercise: { title: 'Exercise time', body: 'A ' /* + '10-minute ' */ + 'posture session is waiting for you.', startHour: 18, endHour: 18, everyMin: 1440 },
 };
 
 // Quiet hours (9PM-7AM) are respected by only scheduling inside the allowed window.

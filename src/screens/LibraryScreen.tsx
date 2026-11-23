@@ -73,7 +73,9 @@ export default function LibraryScreen({ navigation }: { navigation: any }) {
       </Pressable>
       <Pressable onPress={() => openVideo(video)} style={{ flex: 1, marginHorizontal: 12 }}>
         <Text numberOfLines={2} style={{ color: ink, fontSize: 14, lineHeight: 19, fontWeight: '700' }}>{video.title}</Text>
+        {/* Video durations are hidden for closed testing.
         <Text style={{ color: muted, fontSize: 12, marginTop: 5 }}>{Math.max(1, Math.round(video.duration / 60))} min</Text>
+        */}
       </Pressable>
       <Pressable onPress={() => { void toggle(video.video_id); }} accessibilityRole="button" accessibilityLabel={`${isFav(video.video_id) ? 'Remove from' : 'Add to'} favourites`} hitSlop={5} style={{ width: 36, height: 38, borderRadius: 14, backgroundColor: theme.dark ? '#FFFFFF08' : '#F5F1FA', alignItems: 'center', justifyContent: 'center', marginRight: 4 }}>
         <Ionicons name={isFav(video.video_id) ? 'heart' : 'heart-outline'} size={16} color={isFav(video.video_id) ? '#D35BCF' : ink} />

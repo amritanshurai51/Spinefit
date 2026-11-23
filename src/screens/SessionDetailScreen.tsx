@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+// import { Alert } from 'react-native'; // Restore with captions support.
 import { Text } from '../components/Typography';
 import { Ionicons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -10,10 +11,12 @@ import { useTheme } from '../theme/ThemeContext';
 import { useFavourites } from '../store/FavouritesContext';
 
 function Player({ uri }: { uri: string }) {
-  const { theme } = useTheme();
-  const [subtitleTracks, setSubtitleTracks] = useState<any[]>([]);
+  // Captions are temporarily disabled for all videos using this player.
+  // const { theme } = useTheme();
+  // const [subtitleTracks, setSubtitleTracks] = useState<any[]>([]);
   const player = useVideoPlayer({ uri, contentType: 'hls' } as any, instance => { instance.play(); });
 
+  /* Restore the caption listener and picker when captions support is working.
   useEffect(() => {
     const subscription = player.addListener('sourceLoad', event => {
       setSubtitleTracks(event.availableSubtitleTracks ?? []);
@@ -35,13 +38,16 @@ function Player({ uri }: { uri: string }) {
       { text: 'Cancel', style: 'cancel' },
     ]);
   };
+  */
 
   return <>
     <VideoView player={player} style={{ width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000' }} fullscreenOptions={{ enable: true }} allowsPictureInPicture nativeControls />
+    {/* Captions button temporarily hidden.
     <Pressable onPress={chooseCaptions} accessibilityRole="button" accessibilityLabel="Choose captions" style={{ alignSelf: 'flex-end', marginTop: 8, marginRight: 20, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 12, backgroundColor: '#EEDCF3', flexDirection: 'row', alignItems: 'center' }}>
       <Ionicons name="chatbox-ellipses-outline" size={16} color={theme.text} />
       <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700', marginLeft: 6 }}>CC</Text>
     </Pressable>
+    */}
   </>;
 }
 
@@ -94,7 +100,10 @@ export default function SessionDetailScreen({ route, navigation }: any) {
             <Ionicons name={isFav(s.video_id) ? 'heart' : 'heart-outline'} size={28} color={isFav(s.video_id) ? '#FF5C8A' : theme.text} />
           </Pressable>
         </View>
-        <Text style={{ color: theme.subtext, marginTop: 4 }}>{s.metadata?.categories?.join(' · ')} · {Math.round(s.duration / 60)} min</Text>
+        <Text style={{ color: theme.subtext, marginTop: 4 }}>
+          {s.metadata?.categories?.join(' · ')}
+          {/* · {Math.round(s.duration / 60)} min */}
+        </Text>
         <Text style={{ color: theme.text, marginTop: 16, lineHeight: 22 }}>{s.description}</Text>
       </ScrollView>
     </Screen>
