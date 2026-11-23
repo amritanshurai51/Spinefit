@@ -1,9 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import {
   createUserWithEmailAndPassword,
-  EmailAuthProvider,
   onAuthStateChanged,
-  reauthenticateWithCredential,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
@@ -73,10 +71,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = () => signOut(auth);
   const updateName = async (name: string) => setProfile(await Api.setName(name));
 
-  const deleteAccount = async (password: string) => {
+  const deleteAccount = async () => {
     const user = auth.currentUser;
-    if (!user?.email) throw new Error('Please sign in again.');
-    await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
+    if (!user) throw new Error('Please sign in again.');
     await user.getIdToken(true);
     try {
       await Api.deleteMe();

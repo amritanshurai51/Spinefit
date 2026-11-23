@@ -51,7 +51,9 @@ export default function LoginScreen({ navigation }: any) {
           <Button title="Log in" onPress={submit} loading={busy} style={{ height: 50, borderRadius: 17, backgroundColor: '#103F8E', shadowColor: '#102D6C', shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 7 }, elevation: 5 }} />
           <Text style={{ textAlign: 'center', fontSize: 12, color: '#465476', marginTop: 17, marginBottom: 15 }}>or continue with</Text>
           <SocialButton title="Continue with Google" customIcon={<SvgXml xml={googleIconXml} width={18} height={18} />} onPress={signInGoogle} disabled={googleBusy} />
+          {/* Apple sign-in is temporarily disabled; keep this button for later:
           <SocialButton title="Continue with Apple" icon="logo-apple" dark />
+          */}
           <Text style={{ textAlign: 'center', marginTop: 'auto', paddingTop: 28, fontSize: 11, color: '#465476' }}>
             New to SpineFit? <Text onPress={() => navigation.navigate('Signup')} style={{ color: '#103477', fontWeight: '700' }}>Create an account</Text>
           </Text>

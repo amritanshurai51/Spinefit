@@ -11,7 +11,8 @@ import { wellnessIconXml } from '../assets/wellnessIconXml';
 import { useAuth } from '../store/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
 import WelcomeScreen from '../screens/WelcomeScreen';
-import PlansScreen from '../screens/PlansScreen';
+// Plans onboarding is temporarily disabled; retain the screen for later:
+// import PlansScreen from '../screens/PlansScreen';
 import LoginScreen from '../screens/LoginScreen';
 import SignupScreen from '../screens/SignupScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
@@ -69,7 +70,9 @@ export default function RootNavigator() {
         ) : (
           <>
             <Stack.Screen name="Welcome" component={WelcomeScreen} />
+            {/* Plans onboarding is temporarily disabled; retain its route for later:
             <Stack.Screen name="Plans" component={PlansScreen} options={{ presentation: 'modal' }} />
+            */}
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Signup" component={SignupScreen} />
             <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />

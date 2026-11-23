@@ -17,15 +17,15 @@ export default function WelcomeScreen({ navigation }: any) {
         <View style={{ flex: 1 }} />
 
         <View style={{ alignItems: 'center', marginBottom: 26 }}>
-          <Text style={{ color: theme.text, fontSize: 27, lineHeight: 31, fontWeight: '700', textAlign: 'center', letterSpacing: -0.7 }}>
+          {/* <Text style={{ color: theme.text, fontSize: 27, lineHeight: 31, fontWeight: '700', textAlign: 'center', letterSpacing: -0.7 }}>
             Move better{ '\n' }with specialist-{ '\n' }led spine care.
           </Text>
           <Text style={{ color: theme.subtext, fontSize: 13, lineHeight: 19, textAlign: 'center', marginTop: 12, paddingHorizontal: 8 }}>
             Consultations, guided recovery and{ '\n' }trusted support products, in one place.
-          </Text>
+          </Text> */}
           <Button
             title="Get started"
-            onPress={() => navigation.navigate('Plans')}
+            onPress={() => navigation.navigate('Signup')}
             style={{ width: '100%', height: 51, borderRadius: 16, marginTop: 11, backgroundColor: theme.primary }}
           />
           <Text style={{ textAlign: 'center', marginTop: 11, fontSize: 12, color: theme.subtext }}>

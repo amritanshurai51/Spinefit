@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '../components/Typography';
 import { Screen } from '../components/ui';
@@ -8,6 +8,7 @@ import { useContent } from '../store/ContentContext';
 import { useFavourites } from '../store/FavouritesContext';
 import { useTheme } from '../theme/ThemeContext';
 
+/* Temporarily hidden, but kept for restoring the seven-day plans later:
 type Collection = 'plan' | 'favorites' | 'downloads';
 type PlanName = 'Progression' | 'Performance';
 type PlanDay = { day: number; rest: boolean; videos: HomeVideo[] };
@@ -27,14 +28,14 @@ function createWeekPlan(videos: HomeVideo[], plan: PlanName): PlanDay[] {
     return { day, rest: false, videos: items };
   });
 }
+*/
 
 export default function LibraryScreen({ navigation }: { navigation: any }) {
   const { theme } = useTheme();
   const { videos, byId } = useContent() as { videos: HomeVideo[]; byId: (id: string) => HomeVideo | undefined };
   const { ids, isFav, toggle } = useFavourites() as { ids: string[]; isFav: (id: string) => boolean; toggle: (id: string) => Promise<void> };
   const [query, setQuery] = useState('');
-  const [collection, setCollection] = useState<Collection>('plan');
-  const [selectedPlan, setSelectedPlan] = useState<PlanName>('Progression');
+  const collection = 'favorites';
 
   const ink = theme.dark ? '#F4F1FF' : '#14306B';
   const muted = theme.dark ? '#BEC7E2' : '#596B96';
@@ -44,33 +45,24 @@ export default function LibraryScreen({ navigation }: { navigation: any }) {
   const favoriteVideos = ids.map((id: string) => byId(id)).filter((video: HomeVideo | undefined): video is HomeVideo => Boolean(video));
   const filteredVideos = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    const source = collection === 'favorites' ? favoriteVideos : videos;
+    const source = favoriteVideos;
     return needle ? source.filter(video => `${video.title} ${video.description} ${video.metadata?.categories?.join(' ') ?? ''}`.toLowerCase().includes(needle)) : source;
-  }, [collection, favoriteVideos, query, videos]);
+  }, [favoriteVideos, query]);
+  /* Temporarily hidden with the plan browser; keep its calculations for later:
   const planDays = useMemo(() => createWeekPlan(filteredVideos, selectedPlan), [filteredVideos, selectedPlan]);
   const planVideos = planDays.flatMap(day => day.videos);
   const totalMinutes = Math.round(planVideos.reduce((sum, video) => sum + video.duration, 0) / 60);
   const minutesPerWorkout = planVideos.length ? Math.round(totalMinutes / 5) : 0;
+  */
 
   const openVideo = (video: HomeVideo) => navigation.navigate('SessionDetail', { id: video.video_id });
+  /* Keep the download handler until offline downloads are supported:
   const requestDownload = () => Alert.alert(
     'Offline download unavailable',
     'The video service currently provides HLS streaming URLs, not a complete downloadable video file. Ask the backend developer for a secure MP4 download URL or an offline HLS package endpoint to enable in-app downloads.',
     [{ text: 'OK' }],
   );
-
-  const collectionCard = (kind: 'downloads' | 'favorites', title: string, count: number, icon: 'download-outline' | 'heart') => {
-    const active = collection === kind;
-    return (
-      <Pressable onPress={() => setCollection(kind)} style={{ flex: 1, minHeight: 156, borderRadius: 26, padding: 19, backgroundColor: surface, marginRight: kind === 'downloads' ? 10 : 0, shadowColor: '#31215A', shadowOpacity: theme.dark ? 0 : 0.07, shadowRadius: 13, shadowOffset: { width: 0, height: 5 }, elevation: 2 }}>
-        <View style={{ width: 52, height: 52, borderRadius: 19, backgroundColor: active ? accent : (kind === 'downloads' ? (theme.dark ? '#283A82' : '#1E2D77') : '#ECA6E9'), alignItems: 'center', justifyContent: 'center', marginBottom: 17 }}>
-          <Ionicons name={icon} size={23} color={kind === 'downloads' && !active ? '#FFFFFF' : ink} />
-        </View>
-        <Text style={{ color: ink, fontSize: 17, fontWeight: '800' }}>{title}</Text>
-        <Text style={{ color: muted, fontSize: 12, lineHeight: 19, marginTop: 7 }}>{count} videos{kind === 'downloads' ? ' · plays offline' : ''}</Text>
-      </Pressable>
-    );
-  };
+  */
 
   const videoRow = (video: HomeVideo, index: number) => (
     <View key={video.video_id} style={{ minHeight: 80, borderRadius: 22, padding: 10, backgroundColor: soft, flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
@@ -86,9 +78,11 @@ export default function LibraryScreen({ navigation }: { navigation: any }) {
       <Pressable onPress={() => { void toggle(video.video_id); }} accessibilityRole="button" accessibilityLabel={`${isFav(video.video_id) ? 'Remove from' : 'Add to'} favourites`} hitSlop={5} style={{ width: 36, height: 38, borderRadius: 14, backgroundColor: theme.dark ? '#FFFFFF08' : '#F5F1FA', alignItems: 'center', justifyContent: 'center', marginRight: 4 }}>
         <Ionicons name={isFav(video.video_id) ? 'heart' : 'heart-outline'} size={16} color={isFav(video.video_id) ? '#D35BCF' : ink} />
       </Pressable>
+      {/* Download control is hidden until offline video downloads are supported:
       <Pressable onPress={requestDownload} accessibilityRole="button" accessibilityLabel={`Download ${video.title}`} hitSlop={5} style={{ width: 36, height: 38, borderRadius: 14, backgroundColor: theme.dark ? '#FFFFFF08' : '#F5F1FA', alignItems: 'center', justifyContent: 'center' }}>
         <Ionicons name="download-outline" size={16} color={ink} />
       </Pressable>
+      */}
     </View>
   );
 
@@ -99,16 +93,21 @@ export default function LibraryScreen({ navigation }: { navigation: any }) {
 
         <View style={{ height: 57, borderRadius: 21, paddingHorizontal: 18, backgroundColor: surface, flexDirection: 'row', alignItems: 'center', shadowColor: '#34205D', shadowOpacity: theme.dark ? 0 : 0.05, shadowRadius: 9, elevation: 1 }}>
           <Ionicons name="search-outline" size={19} color={muted} />
-          <TextInput value={query} onChangeText={setQuery} placeholder="Search videos or a level..." placeholderTextColor={muted} returnKeyType="search" style={{ flex: 1, marginLeft: 13, color: ink, fontFamily: 'Sora_400Regular', fontSize: 13, paddingVertical: 0 }} />
+          <TextInput value={query} onChangeText={setQuery} placeholder="Search your favourites..." placeholderTextColor={muted} returnKeyType="search" style={{ flex: 1, marginLeft: 13, color: ink, fontFamily: 'Sora_400Regular', fontSize: 13, paddingVertical: 0 }} />
           {query.length > 0 && <Pressable onPress={() => setQuery('')} hitSlop={8}><Ionicons name="close-circle" size={18} color={muted} /></Pressable>}
         </View>
 
-        <Text style={{ color: ink, fontSize: 21, fontWeight: '800', marginTop: 32, marginBottom: 17 }}>Your playlists</Text>
-        <View style={{ flexDirection: 'row' }}>
-          {collectionCard('downloads', 'Downloads', 0, 'download-outline')}
-          {collectionCard('favorites', 'Favourites', ids.length, 'heart')}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 25, marginBottom: 13 }}>
+          <View>
+            <Text style={{ color: ink, fontSize: 21, fontWeight: '800' }}>Your favourites</Text>
+            <Text style={{ color: muted, fontSize: 12, marginTop: 4 }}>The videos you’ve saved</Text>
+          </View>
+          <View style={{ borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: surface }}>
+            <Text style={{ color: ink, fontSize: 12, fontWeight: '700' }}>{favoriteVideos.length} {favoriteVideos.length === 1 ? 'video' : 'videos'}</Text>
+          </View>
         </View>
 
+        {/* Other plans and the seven-day plan browser are temporarily hidden:
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 34, marginBottom: 14 }}>
           <Text style={{ color: ink, fontSize: 21, fontWeight: '800' }}>Other plans</Text>
           <View style={{ borderRadius: 12, paddingHorizontal: 10, paddingVertical: 7, backgroundColor: surface }}><Text style={{ color: muted, fontSize: 10 }}>Strengthening is on Home</Text></View>
@@ -173,6 +172,29 @@ export default function LibraryScreen({ navigation }: { navigation: any }) {
             <View style={{ width: 54, height: 54, borderRadius: 18, backgroundColor: theme.dark ? '#283A82' : '#1E2D77', alignItems: 'center', justifyContent: 'center', marginBottom: 13 }}><Ionicons name="download-outline" size={24} color="#FFFFFF" /></View>
             <Text style={{ color: ink, fontSize: 16, fontWeight: '800' }}>No offline videos yet</Text>
             <Text style={{ color: muted, fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: 7 }}>Use a video's download button to save it here. Offline downloads need a downloadable video file from the video service.</Text>
+          </View>
+        )}
+        */}
+
+        {favoriteVideos.length > 0 && (
+          <Pressable onPress={() => openVideo(filteredVideos[0] ?? favoriteVideos[0])} style={{ height: 52, borderRadius: 17, backgroundColor: theme.dark ? '#D978E8' : '#202F78', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
+            <Ionicons name="play" size={15} color="#FFFFFF" />
+            <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800', marginLeft: 9 }}>Play favourites</Text>
+          </Pressable>
+        )}
+        {filteredVideos.length ? (
+          <View style={{ backgroundColor: surface, borderRadius: 24, padding: 12, shadowColor: '#31215A', shadowOpacity: theme.dark ? 0 : 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: theme.dark ? 0 : 2 }}>
+            {filteredVideos.map((video, index) => videoRow(video, index))}
+          </View>
+        ) : (
+          <View style={{ minHeight: 190, alignItems: 'center', justifyContent: 'center', padding: 24, borderRadius: 24, backgroundColor: surface }}>
+            <View style={{ width: 58, height: 58, borderRadius: 20, backgroundColor: theme.dark ? '#FFFFFF12' : '#F7E5F7', alignItems: 'center', justifyContent: 'center', marginBottom: 13 }}>
+              <Ionicons name={query ? 'search-outline' : 'heart-outline'} size={25} color={accent} />
+            </View>
+            <Text style={{ color: ink, fontSize: 16, fontWeight: '800', textAlign: 'center' }}>{query ? 'No matching videos' : 'No favourites yet'}</Text>
+            <Text style={{ color: muted, fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: 6 }}>
+              {query ? 'Try a different search.' : 'Tap the heart on a video to save it here for later.'}
+            </Text>
           </View>
         )}
       </ScrollView>

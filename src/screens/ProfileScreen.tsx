@@ -8,7 +8,8 @@ import { useAuth } from '../store/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
 import { setReminder } from '../services/notifications';
 import { friendlyAuthError } from '../api/firebase';
-import { PRIVACY_POLICY_URL } from '../config';
+import { LegalDocumentModal } from '../components/LegalDocumentModal';
+import { legalDocuments } from '../assets/legalDocuments';
 
 type ProfileSettings = {
   notifications: boolean;
@@ -30,7 +31,6 @@ const NAVY_LIGHT = '#193C79';
 const WHITE = '#FFFFFF';
 const PALE = '#C7D8F6';
 const PINK = '#F2A2F1';
-const TERMS_OF_SERVICE_URL = 'https://sites.google.com/view/fineurspine-terms-of-service/home';
 const ACCOUNT_DELETION_URL = 'https://sites.google.com/view/fineurspine-user-data-deletion/home';
 
 function IconBox({ name }: { name: React.ComponentProps<typeof Ionicons>['name'] }) {
@@ -51,9 +51,9 @@ export default function ProfileScreen({ navigation }: any) {
   const [nameError, setNameError] = useState('');
   const [savingName, setSavingName] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
-  const [deletePassword, setDeletePassword] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [legalDocument, setLegalDocument] = useState<'privacyPolicy' | 'termsOfService' | 'userAgreement' | null>(null);
 
   useEffect(() => {
     AsyncStorage.getItem(SETTINGS_KEY).then(raw => {
@@ -163,16 +163,11 @@ export default function ProfileScreen({ navigation }: any) {
   };
 
   const confirmDeleteAccount = async () => {
-    if (!deletePassword) {
-      setDeleteError('Enter your password to continue.');
-      return;
-    }
     setDeleting(true);
     setDeleteError('');
     try {
-      await deleteAccount(deletePassword);
+      await deleteAccount();
       setDeleteModalVisible(false);
-      setDeletePassword('');
     } catch (error: any) {
       setDeleteError(friendlyAuthError(error));
     } finally {
@@ -197,10 +192,10 @@ export default function ProfileScreen({ navigation }: any) {
             </View>
             <View style={{ flex: 1, marginLeft: 11, alignItems: 'center' }}>
               <Text numberOfLines={1} style={{ color: WHITE, fontSize: 20, fontWeight: '800', textAlign: 'center' }}>{name}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 3 }}>
+              {/* <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 3 }}>
                 <Ionicons name="ribbon" size={15} color="#FFD66B" />
                 <Text style={{ color: '#FFD66B', fontSize: 12, marginLeft: 4 }}>Premium member</Text>
-              </View>
+              </View> */}
             </View>
             {/* Restore this switch when dark mode is ready to be enabled:
             <Switch
@@ -244,6 +239,7 @@ export default function ProfileScreen({ navigation }: any) {
           </View>
         </View>
 
+        {/* Account settings are temporarily hidden; keep the section for later:
         {sectionTitle('Account')}
         <View style={{ backgroundColor: NAVY_LIGHT, borderRadius: 17, paddingVertical: 2 }}>
           {row('lock-closed-outline', 'Change password', 'Update your account password', () => unavailable('Change password'))}
@@ -252,6 +248,7 @@ export default function ProfileScreen({ navigation }: any) {
           <View style={{ height: 1, backgroundColor: '#FFFFFF18', marginHorizontal: 12 }} />
           {row('card-outline', 'Subscription', 'Check your plan and renewal', () => unavailable('Subscription'))}
         </View>
+        */}
 
         {sectionTitle('Notifications')}
         <View style={{ backgroundColor: NAVY_LIGHT, borderRadius: 17, paddingVertical: 2 }}>
@@ -276,12 +273,19 @@ export default function ProfileScreen({ navigation }: any) {
 
         {sectionTitle('Legal')}
         <View style={{ backgroundColor: NAVY_LIGHT, borderRadius: 17, paddingVertical: 2 }}>
-          {row('shield-checkmark-outline', 'Privacy policy', 'How SpineFit protects your data', () => { void openExternalLink(PRIVACY_POLICY_URL, 'Privacy policy'); })}
+          {row('shield-checkmark-outline', 'Privacy policy', 'How SpineFit protects your data', () => setLegalDocument('privacyPolicy'))}
           <View style={{ height: 1, backgroundColor: '#FFFFFF18', marginHorizontal: 12 }} />
-          {row('document-text-outline', 'Terms of service', 'Review your terms', () => { void openExternalLink(TERMS_OF_SERVICE_URL, 'Terms of service'); })}
+          {row('document-text-outline', 'Terms of service', 'Review your terms', () => setLegalDocument('termsOfService'))}
+          <View style={{ height: 1, backgroundColor: '#FFFFFF18', marginHorizontal: 12 }} />
+          {row('document-text-outline', 'User Agreement', 'Fitness and safety acknowledgment', () => setLegalDocument('userAgreement'))}
           <View style={{ height: 1, backgroundColor: '#FFFFFF18', marginHorizontal: 12 }} />
           {row('trash-outline', 'Account deletion instructions', 'Review how to delete your account and data', () => { void openExternalLink(ACCOUNT_DELETION_URL, 'account deletion instructions'); })}
         </View>
+
+        <Pressable onPress={() => { setDeleteError(''); setDeleteModalVisible(true); }} style={{ minHeight: 52, marginTop: 14, borderRadius: 17, backgroundColor: '#C53E59', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, elevation: 3 }}>
+          <Ionicons name="trash-outline" size={17} color={WHITE} />
+          <Text style={{ color: WHITE, fontWeight: '800', fontSize: 14 }}>Delete my account</Text>
+        </Pressable>
 
         <Pressable onPress={logout} style={{ minHeight: 52, marginTop: 16, borderRadius: 17, backgroundColor: NAVY, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, elevation: 4 }}>
           <Ionicons name="log-out-outline" size={17} color={PINK} />
@@ -322,16 +326,25 @@ export default function ProfileScreen({ navigation }: any) {
         <Pressable onPress={() => setDeleteModalVisible(false)} style={{ flex: 1, backgroundColor: '#080D24A8', justifyContent: 'center', padding: 28 }}>
           <Pressable onPress={() => {}} style={{ backgroundColor: theme.dark ? '#19275A' : WHITE, borderRadius: 20, padding: 18 }}>
             <Text style={{ color: theme.text, fontSize: 18, fontWeight: '800', marginBottom: 8 }}>Delete my account?</Text>
-            <Text style={{ color: theme.subtext, fontSize: 13, marginBottom: 12 }}>This permanently deletes your account. Enter your password to confirm.</Text>
-            <TextInput value={deletePassword} onChangeText={setDeletePassword} placeholder="Password" placeholderTextColor={theme.subtext} secureTextEntry
-              style={{ color: theme.text, borderWidth: 1, borderColor: theme.border, borderRadius: 12, paddingHorizontal: 12, minHeight: 46, marginTop: 8 }} />
+            <Text style={{ color: theme.subtext, fontSize: 13, marginBottom: 12 }}>This permanently deletes your account and associated data. Do you want to continue?</Text>
             {!!deleteError && <Text style={{ color: '#D9485F', fontSize: 12, marginTop: 8 }}>{deleteError}</Text>}
+            <Pressable onPress={() => setDeleteModalVisible(false)} disabled={deleting} style={{ minHeight: 44, marginTop: 8, borderRadius: 12, borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: theme.text, fontWeight: '700' }}>Cancel</Text>
+            </Pressable>
             <Pressable onPress={confirmDeleteAccount} disabled={deleting} style={{ minHeight: 46, marginTop: 14, borderRadius: 12, backgroundColor: '#C53E59', alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ color: WHITE, fontWeight: '700' }}>{deleting ? 'Deleting…' : 'Delete account'}</Text>
             </Pressable>
           </Pressable>
         </Pressable>
       </Modal>
+      {legalDocument && (
+        <LegalDocumentModal
+          visible
+          title={legalDocument === 'privacyPolicy' ? 'Privacy Policy' : legalDocument === 'termsOfService' ? 'Terms of Service' : 'User Agreement'}
+          html={legalDocuments[legalDocument]}
+          onClose={() => setLegalDocument(null)}
+        />
+      )}
     </Screen>
   );
 }
